@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { compare } from "bcryptjs";
 import { resolveJwtSecret } from "../common/config/jwt-secret";
+import { resolveAuthSessionTtlSeconds } from "../common/config/session";
 import { AuthUser } from "../common/interfaces/auth-user.interface";
 import { UsersService } from "../users/users.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
@@ -56,7 +57,7 @@ export class AuthService {
   private async signToken(payload: AuthUser): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: resolveJwtSecret(),
-      expiresIn: "8h",
+      expiresIn: resolveAuthSessionTtlSeconds(),
     });
   }
 }

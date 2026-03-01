@@ -2,6 +2,7 @@ import { Body, Controller, Post, Res, UseGuards } from "@nestjs/common";
 import { Response } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { resolveAuthSessionMaxAgeMs } from "../common/config/session";
 import { AuthUser } from "../common/interfaces/auth-user.interface";
 import { AuthService } from "./auth.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
@@ -44,7 +45,7 @@ export class AuthController {
       httpOnly: true,
       sameSite,
       secure,
-      maxAge: 8 * 60 * 60 * 1000,
+      maxAge: resolveAuthSessionMaxAgeMs(),
     });
 
     return { user: result.user, accessToken: result.accessToken };

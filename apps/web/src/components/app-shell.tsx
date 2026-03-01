@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { clearAuth, getAccessToken } from '@/lib/auth';
+import { clearAuth } from '@/lib/auth';
 import { MobileBlockedNotice, useIsMobileClient } from '@/components/mobile-block';
 import { MeUser, UserRole } from '@/types/auth';
 import { AdminPunchWidget } from '@/components/admin-punch-banner';
@@ -322,18 +322,15 @@ export function AppShell({
   const currentPath = pathname || '/';
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    apiFetch<MeUser>('/me').then((data) => {
-      setMe(data);
-      setAuthChecked(true);
-    }).catch(() => {
-      clearAuth();
-      router.replace('/login');
-    });
+    apiFetch<MeUser>('/me')
+      .then((data) => {
+        setMe(data);
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        clearAuth();
+        router.replace('/login');
+      });
   }, [router]);
 
   if (!authChecked) {
