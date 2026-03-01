@@ -93,6 +93,13 @@ function inferCrossesMidnight(startTime: string, endTime: string): boolean {
   return endTime <= startTime;
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+}
+
 export default function AdminUsersPage() {
   return <Suspense><AdminUsersContent /></Suspense>;
 }
@@ -130,6 +137,11 @@ function AdminUsersContent() {
   const [teamShiftEnd, setTeamShiftEnd] = useState('');
   const [editShiftRows, setEditShiftRows] = useState<ShiftInputRow[]>([{ id: createRowId(), startTime: '', endTime: '' }]);
   const [editEffectiveFrom, setEditEffectiveFrom] = useState(todayStr());
+  const createUserFormRef = useRef<HTMLFormElement>(null);
+  const createTeamFormRef = useRef<HTMLFormElement>(null);
+  const resetPasswordFormRef = useRef<HTMLFormElement>(null);
+  const editUserFormRef = useRef<HTMLFormElement>(null);
+  const editTeamFormRef = useRef<HTMLFormElement>(null);
 
   // Action menu
   const [openMenu, setOpenMenu] = useState<ActionMenuState | null>(null);
@@ -252,6 +264,95 @@ function AdminUsersContent() {
       closeActionMenu();
     }
   }, [closeActionMenu, openMenu, users]);
+
+  useEffect(() => {
+    const hasOpenModal =
+      showCreateUser ||
+      showCreateTeam ||
+      !!resetPasswordUser ||
+      !!editingUser ||
+      !!approveTarget ||
+      !!editingTeam;
+    if (!hasOpenModal) return;
+
+    function closeActiveModal() {
+      if (approveTarget) {
+        setApproveTarget(null);
+        return;
+      }
+      if (editingUser) {
+        setEditingUser(null);
+        return;
+      }
+      if (resetPasswordUser) {
+        setResetPasswordUser(null);
+        return;
+      }
+      if (editingTeam) {
+        setEditingTeam(null);
+        return;
+      }
+      if (showCreateTeam) {
+        setShowCreateTeam(false);
+        return;
+      }
+      if (showCreateUser) {
+        setShowCreateUser(false);
+      }
+    }
+
+    function submitActiveModal() {
+      if (showCreateUser) {
+        createUserFormRef.current?.requestSubmit();
+        return;
+      }
+      if (showCreateTeam) {
+        createTeamFormRef.current?.requestSubmit();
+        return;
+      }
+      if (resetPasswordUser) {
+        resetPasswordFormRef.current?.requestSubmit();
+        return;
+      }
+      if (editingUser) {
+        editUserFormRef.current?.requestSubmit();
+        return;
+      }
+      if (approveTarget) {
+        void confirmApproveRequest();
+        return;
+      }
+      if (editingTeam) {
+        editTeamFormRef.current?.requestSubmit();
+      }
+    }
+
+    function handleModalKeys(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeActiveModal();
+        return;
+      }
+      if (e.key !== 'Enter' || e.repeat) return;
+      if (isTypingTarget(e.target)) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      }
+      e.preventDefault();
+      submitActiveModal();
+    }
+
+    window.addEventListener('keydown', handleModalKeys);
+    return () => window.removeEventListener('keydown', handleModalKeys);
+  }, [
+    approveTarget,
+    confirmApproveRequest,
+    editingTeam,
+    editingUser,
+    resetPasswordUser,
+    showCreateTeam,
+    showCreateUser
+  ]);
 
   function flash(msg: string) {
     setMessage(msg);
@@ -784,7 +885,7 @@ function AdminUsersContent() {
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateUser(false); }}>
           <div className="modal">
             <h3>👤 Create New User</h3>
-            <form className="form-grid" onSubmit={(e) => void createUser(e)}>
+            <form ref={createUserFormRef} className="form-grid" onSubmit={(e) => void createUser(e)}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" required />
                 <input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
@@ -802,7 +903,7 @@ function AdminUsersContent() {
                   <option value="ADMIN">ADMIN</option>
                 </select>
                 <select className="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-                  <option value="">Service (no team)</option>
+                  <option value="">No Team</option>
                   {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
@@ -824,7 +925,7 @@ function AdminUsersContent() {
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateTeam(false); }}>
           <div className="modal">
             <h3>🏷️ Create New Team</h3>
-            <form className="form-grid" onSubmit={(e) => void createTeam(e)}>
+            <form ref={createTeamFormRef} className="form-grid" onSubmit={(e) => void createTeam(e)}>
               <input className="input" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team name" required autoFocus />
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.3rem' }}>Shift Schedule (optional)</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
@@ -855,7 +956,7 @@ function AdminUsersContent() {
               Set a new password for <strong>{resetPasswordUser.displayName}</strong> ({resetPasswordUser.username}).
               They will be required to change it on next login.
             </p>
-            <form className="form-grid" onSubmit={(e) => void submitResetPassword(e)}>
+            <form ref={resetPasswordFormRef} className="form-grid" onSubmit={(e) => void submitResetPassword(e)}>
               <input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New temporary password" minLength={6} required autoFocus />
               <div className="modal-footer">
                 <button type="button" className="button button-ghost" onClick={() => setResetPasswordUser(null)}>Cancel</button>
@@ -874,7 +975,7 @@ function AdminUsersContent() {
             <p style={{ marginBottom: '0.65rem' }}>
               Editing <strong>{editingUser.displayName}</strong> ({editingUser.username})
             </p>
-            <form className="form-grid" onSubmit={(e) => void submitEditUser(e)}>
+            <form ref={editUserFormRef} className="form-grid" onSubmit={(e) => void submitEditUser(e)}>
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Role</label>
               <select className="select" value={editRole} onChange={(e) => setEditRole(e.target.value as 'ADMIN' | 'MEMBER' | 'DRIVER' | 'LEADER' | 'MAID' | 'CHEF')}>
                 <option value="MEMBER">MEMBER</option>
@@ -886,7 +987,7 @@ function AdminUsersContent() {
               </select>
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.3rem' }}>Team</label>
               <select className="select" value={editTeamId} onChange={(e) => setEditTeamId(e.target.value)}>
-                <option value="">Service (no team)</option>
+                <option value="">No Team</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <div className="modal-footer">
@@ -911,7 +1012,7 @@ function AdminUsersContent() {
             <div className="form-grid">
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Team / Group</label>
               <select className="select" value={approveTeamId} onChange={(e) => setApproveTeamId(e.target.value)}>
-                <option value="">Service (no team)</option>
+                <option value="">No Team</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.3rem' }}>Role</label>
@@ -939,7 +1040,7 @@ function AdminUsersContent() {
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditingTeam(null); }}>
           <div className="modal">
             <h3>✏️ Edit Team</h3>
-            <form className="form-grid" onSubmit={(e) => void renameTeam(e)}>
+            <form ref={editTeamFormRef} className="form-grid" onSubmit={(e) => void renameTeam(e)}>
               <label style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Team Name</label>
               <input className="input" value={editTeamName} onChange={(e) => setEditTeamName(e.target.value)} placeholder="Team name" required autoFocus />
 

@@ -62,6 +62,13 @@ const DRIVER_AVAIL_CONFIG: Record<string, { emoji: string; label: string; color:
   OFFLINE:   { emoji: '🏠', label: 'Off Duty',  color: 'var(--danger)', bg: 'rgba(239,68,68,0.12)' },
 };
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+}
+
 export default function AdminRequestsPage() {
   return <Suspense><AdminRequestsContent /></Suspense>;
 }
@@ -125,6 +132,32 @@ function AdminRequestsContent() {
     }, 15_000);
     return () => clearInterval(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (!driverApproveTarget) return;
+
+    function handleApproveModalKeys(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setDriverApproveTarget(null);
+        setSelectedDriverId('');
+        return;
+      }
+
+      if (e.key !== 'Enter' || e.repeat) return;
+      if (isTypingTarget(e.target)) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      }
+      if (driverActionId || !selectedDriverId) return;
+
+      e.preventDefault();
+      void confirmDriverApprove();
+    }
+
+    window.addEventListener('keydown', handleApproveModalKeys);
+    return () => window.removeEventListener('keydown', handleApproveModalKeys);
+  }, [driverActionId, driverApproveTarget, selectedDriverId, confirmDriverApprove]);
 
   async function rejectRequest(id: string) {
     setError(''); setMessage('');

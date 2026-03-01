@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { apiFetch } from '@/lib/api';
 import { MeUser } from '@/types/auth';
@@ -16,7 +16,16 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [me, setMe] = useState<MeUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +46,25 @@ export default function ProfilePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const requestedReturnTo = searchParams.get('returnTo');
+
+  const fallbackPath = useMemo(() => {
+    if (me?.role === 'ADMIN') return '/admin/live';
+    if (me?.role === 'DRIVER') return '/employee/driver';
+    return '/employee/dashboard';
+  }, [me?.role]);
+
+  const returnToPath = useMemo(() => {
+    if (
+      requestedReturnTo &&
+      requestedReturnTo.startsWith('/') &&
+      !requestedReturnTo.startsWith('//') &&
+      !requestedReturnTo.startsWith('/employee/profile')
+    ) {
+      return requestedReturnTo;
+    }
+    return fallbackPath;
+  }, [fallbackPath, requestedReturnTo]);
 
   useEffect(() => {
     apiFetch<MeUser>('/me')
@@ -52,6 +80,25 @@ export default function ProfilePage() {
       .catch(() => setError('Failed to load profile'))
       .finally(() => setLoading(false));
   }, []);
+
+  const goBack = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(returnToPath);
+  }, [returnToPath, router]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      goBack();
+    }
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [goBack]);
 
   function flash(msg: string) {
     setMessage(msg);
@@ -177,16 +224,6 @@ export default function ProfilePage() {
     );
   }
 
-  function goBack() {
-    if (me?.role === 'ADMIN') {
-      router.push('/admin/live');
-    } else if (me?.role === 'DRIVER') {
-      router.push('/employee/driver');
-    } else {
-      router.push('/employee/dashboard');
-    }
-  }
-
   return (
     <AppShell title="Profile" subtitle="Manage your account" userRole={me?.role}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
@@ -200,7 +237,7 @@ export default function ProfilePage() {
             <path d="M19 12H5" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
-          Back to Dashboard
+          Back
         </button>
 
         {message ? <div className="alert alert-success">{message}</div> : null}

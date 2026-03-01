@@ -142,7 +142,7 @@ function AdminNotificationBell() {
   );
 }
 
-function ProfileAvatar({ me, admin }: { me: MeUser | null; admin: boolean }) {
+function ProfileAvatar({ me, admin, currentPath }: { me: MeUser | null; admin: boolean; currentPath: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -164,7 +164,10 @@ function ProfileAvatar({ me, admin }: { me: MeUser | null; admin: boolean }) {
   }
 
   const initial = me?.displayName?.[0]?.toUpperCase() || '?';
-  const profileHref = '/employee/profile';
+  const fallbackReturnTo = admin ? '/admin/live' : '/employee/dashboard';
+  const effectiveReturnTo =
+    currentPath && !currentPath.startsWith('/employee/profile') ? currentPath : fallbackReturnTo;
+  const profileHref = `/employee/profile?returnTo=${encodeURIComponent(effectiveReturnTo)}`;
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -316,6 +319,7 @@ export function AppShell({
   const isMobile = useIsMobileClient();
   const [authChecked, setAuthChecked] = useState(false);
   const [me, setMe] = useState<MeUser | null>(null);
+  const currentPath = pathname || '/';
 
   useEffect(() => {
     const token = getAccessToken();
@@ -367,7 +371,7 @@ export function AppShell({
             {headerAction}
             {admin ? <AdminNotificationBell /> : null}
             {admin ? <AdminPunchWidget /> : null}
-            <ProfileAvatar me={me} admin={admin} />
+            <ProfileAvatar me={me} admin={admin} currentPath={currentPath} />
           </div>
         </div>
 
