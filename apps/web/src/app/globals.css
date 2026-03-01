@@ -151,10 +151,11 @@ p {
 
 /* Break policy chip */
 .button-chip {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.5rem 0.375rem;
+  padding: 0.6rem 0.375rem 0.5rem;
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -168,6 +169,24 @@ p {
   min-height: 3rem;
   justify-content: center;
   transition: background var(--transition), border-color var(--transition);
+}
+
+.button-chip .chip-shortcut {
+  position: absolute;
+  top: 0.28rem;
+  left: 0.3rem;
+  min-width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-hover);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-2);
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .button-chip .chip-emoji {
@@ -1002,6 +1021,17 @@ main > .shell {
   margin-bottom: 1rem;
   color: var(--ink);
   letter-spacing: -0.01em;
+}
+
+.shortcut-confirm-modal kbd {
+  display: inline-block;
+  border: 1px solid var(--line-hover);
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  color: var(--ink-2);
 }
 
 .modal-footer {

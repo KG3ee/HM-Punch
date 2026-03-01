@@ -83,6 +83,22 @@ const DASHBOARD_CACHE_KEY = 'employee_dashboard_cache_v1';
 const TOP_BREAK_CODES = ['bwc', 'wc', 'cy'] as const;
 const BOTTOM_BREAK_CODES = ['cf+1', 'cf+2', 'cf+3'] as const;
 const FIXED_BREAK_CODES: ReadonlySet<string> = new Set([...TOP_BREAK_CODES, ...BOTTOM_BREAK_CODES]);
+const BREAK_SHORTCUT_KEY_TO_CODE: Record<string, string> = {
+  b: 'bwc',
+  w: 'wc',
+  c: 'cy',
+  '1': 'cf+1',
+  '2': 'cf+2',
+  '3': 'cf+3'
+};
+const BREAK_SHORTCUT_CODE_TO_LABEL: Record<string, string> = {
+  bwc: 'B',
+  wc: 'W',
+  cy: 'C',
+  'cf+1': '1',
+  'cf+2': '2',
+  'cf+3': '3'
+};
 const BREAK_EMOJI_MAP: Record<string, string> = {
   wc: '🚽',
   bwc: '💩',
@@ -116,6 +132,13 @@ function queueDate(iso: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+}
+
 export default function EmployeeDashboardPage() {
   const router = useRouter();
   const [me, setMe] = useState<MeUser | null>(null);
@@ -134,6 +157,7 @@ export default function EmployeeDashboardPage() {
   const [isOffline, setIsOffline] = useState(false);
   const [clockSkewMinutes, setClockSkewMinutes] = useState<number | null>(null);
   const [serverTimeZone, setServerTimeZone] = useState('');
+  const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const syncedActionIdsRef = useRef<Set<string>>(new Set());
@@ -225,6 +249,11 @@ export default function EmployeeDashboardPage() {
     return Math.max(0, Math.round((nowTick - startedAt) / 60000));
   }, [activeBreak, nowTick]);
 
+  const canStartBreak = useMemo(() => {
+    const breakUiEnabled = me?.role !== 'MAID' && me?.role !== 'CHEF';
+    return breakUiEnabled && !!activeSession && !activeBreak && !((loading && !isOffline));
+  }, [activeBreak, activeSession, isOffline, loading, me?.role]);
+
   // Only show breaks linked to the current active duty session
   const sessionBreaks = useMemo(() => {
     if (!activeSession) return [];
@@ -298,14 +327,12 @@ export default function EmployeeDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keyboard shortcuts: Space → End break, Esc → Cancel break
+  // Keyboard shortcuts while break is active: Space → End break, Esc → Cancel break
   useEffect(() => {
     if (!activeBreak) return;
 
     function handleKeyDown(e: KeyboardEvent) {
-      // Don't intercept if user is typing in an input/textarea
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (shortcutConfirmPolicy || isTypingTarget(e.target)) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -319,7 +346,65 @@ export default function EmployeeDashboardPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBreak, loading]);
+  }, [activeBreak, loading, shortcutConfirmPolicy]);
+
+  // Keyboard shortcuts to start break (b/w/c/1/2/3) with confirmation modal
+  useEffect(() => {
+    function handleBreakStartShortcut(e: KeyboardEvent) {
+      if (
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.shiftKey ||
+        e.repeat ||
+        shortcutConfirmPolicy ||
+        !canStartBreak ||
+        isTypingTarget(e.target)
+      ) {
+        return;
+      }
+
+      const pressed = e.key.toLowerCase();
+      const code = BREAK_SHORTCUT_KEY_TO_CODE[pressed];
+      if (!code) return;
+
+      const policy = policies.find((item) => item.code.toLowerCase() === code);
+      if (!policy) return;
+
+      e.preventDefault();
+      setShortcutConfirmPolicy(policy);
+    }
+
+    window.addEventListener('keydown', handleBreakStartShortcut);
+    return () => window.removeEventListener('keydown', handleBreakStartShortcut);
+  }, [canStartBreak, policies, shortcutConfirmPolicy]);
+
+  // Confirmation modal controls: Enter confirms, Escape cancels
+  useEffect(() => {
+    if (!shortcutConfirmPolicy) return;
+
+    function handleConfirmKeys(e: KeyboardEvent) {
+      if (isTypingTarget(e.target)) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const policy = shortcutConfirmPolicy;
+        if (!policy) return;
+        setShortcutConfirmPolicy(null);
+        void runAction('/breaks/start', { code: policy.code });
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShortcutConfirmPolicy(null);
+      }
+    }
+
+    window.addEventListener('keydown', handleConfirmKeys);
+    return () => window.removeEventListener('keydown', handleConfirmKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shortcutConfirmPolicy]);
 
   async function loadData(options?: { background?: boolean }): Promise<void> {
     const background = options?.background ?? false;
@@ -518,6 +603,7 @@ export default function EmployeeDashboardPage() {
   function renderPolicyButton(policy: BreakPolicy) {
     const normalizedCode = policy.code.toLowerCase();
     const emoji = BREAK_EMOJI_MAP[normalizedCode] || '☕';
+    const shortcutLabel = BREAK_SHORTCUT_CODE_TO_LABEL[normalizedCode];
     return (
       <button
         key={policy.id}
@@ -525,8 +611,11 @@ export default function EmployeeDashboardPage() {
         className="button-chip"
         disabled={(loading && !isOffline) || !activeSession || !!activeBreak}
         onClick={() => void runAction('/breaks/start', { code: policy.code })}
-        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/day`}
+        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/day${shortcutLabel ? ` · Shortcut ${shortcutLabel}` : ''}`}
       >
+        {shortcutLabel ? (
+          <span className="chip-shortcut" aria-hidden="true">{shortcutLabel}</span>
+        ) : null}
         <span className="chip-emoji">{emoji}</span>
         <span className="chip-code">{policy.code.toUpperCase()} · {policy.expectedDurationMinutes}m</span>
         <span className="chip-name">{policy.name}</span>
@@ -1123,6 +1212,48 @@ export default function EmployeeDashboardPage() {
           ) : null}
         </div>
       </section>
+
+      {shortcutConfirmPolicy ? (
+        <div
+          className="modal-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShortcutConfirmPolicy(null);
+            }
+          }}
+        >
+          <div className="modal shortcut-confirm-modal">
+            <h3>Confirm Break Shortcut</h3>
+            <p style={{ marginBottom: '0.35rem' }}>
+              Start <strong>{shortcutConfirmPolicy.code.toUpperCase()}</strong> - {shortcutConfirmPolicy.name}?
+            </p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Press <kbd>Enter</kbd> to confirm or <kbd>Esc</kbd> to cancel.
+            </p>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setShortcutConfirmPolicy(null)}
+              >
+                Cancel (Esc)
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  const policy = shortcutConfirmPolicy;
+                  if (!policy) return;
+                  setShortcutConfirmPolicy(null);
+                  void runAction('/breaks/start', { code: policy.code });
+                }}
+              >
+                Confirm (Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       </>
       )}
 
