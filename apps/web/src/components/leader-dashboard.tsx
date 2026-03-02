@@ -23,6 +23,25 @@ const BREAK_SHORTCUT_CODE_TO_LABEL: Record<string, string> = {
   'cf+2': '2',
   'cf+3': '3',
 };
+const BREAK_SHORTCUT_KEY_TO_CODE: Record<string, string> = {
+  b: 'bwc',
+  w: 'wc',
+  c: 'cy',
+  '1': 'cf+1',
+  '2': 'cf+2',
+  '3': 'cf+3',
+};
+const BREAK_SHORTCUT_EVENT_CODE_TO_CODE: Record<string, string> = {
+  KeyB: 'bwc',
+  KeyW: 'wc',
+  KeyC: 'cy',
+  Digit1: 'cf+1',
+  Digit2: 'cf+2',
+  Digit3: 'cf+3',
+  Numpad1: 'cf+1',
+  Numpad2: 'cf+2',
+  Numpad3: 'cf+3',
+};
 
 /* ── Types shared with the parent dashboard ── */
 type DutySession = {
@@ -130,6 +149,13 @@ type DriverInfo = {
   driverStatus: string | null;
 };
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+}
+
 /* ── Props from parent dashboard ── */
 export type LeaderDashboardProps = {
   activeSession: DutySession | null;
@@ -182,6 +208,7 @@ export function LeaderDashboard({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
 
   const [actionId, setActionId] = useState<string | null>(null);
 
@@ -327,6 +354,84 @@ export function LeaderDashboard({
     );
   }
 
+  // Keyboard shortcuts while break is active: Space => End break, Esc => Cancel break (within 2 min)
+  useEffect(() => {
+    if (!activeBreak) return;
+    const activeBreakStartedAt = activeBreak.startedAt;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (shortcutConfirmPolicy || isTypingTarget(e.target)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        void runAction('/breaks/end');
+      } else if (e.code === 'Escape' && (Date.now() - new Date(activeBreakStartedAt).getTime()) < 120000) {
+        e.preventDefault();
+        void runAction('/breaks/cancel');
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeBreak, runAction, shortcutConfirmPolicy]);
+
+  // Keyboard shortcuts to start break (b/w/c/1/2/3) with confirmation modal
+  useEffect(() => {
+    function handleBreakStartShortcut(e: KeyboardEvent) {
+      if (
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.repeat ||
+        shortcutConfirmPolicy ||
+        !canStartBreak ||
+        isTypingTarget(e.target)
+      ) {
+        return;
+      }
+
+      const code =
+        BREAK_SHORTCUT_EVENT_CODE_TO_CODE[e.code] ||
+        BREAK_SHORTCUT_KEY_TO_CODE[e.key.toLowerCase()];
+      if (!code) return;
+
+      const policy = policies.find((item) => item.code.toLowerCase() === code);
+      if (!policy) return;
+
+      e.preventDefault();
+      setShortcutConfirmPolicy(policy);
+    }
+
+    window.addEventListener('keydown', handleBreakStartShortcut);
+    return () => window.removeEventListener('keydown', handleBreakStartShortcut);
+  }, [canStartBreak, policies, shortcutConfirmPolicy]);
+
+  // Confirmation modal controls: Enter confirms, Escape cancels
+  useEffect(() => {
+    if (!shortcutConfirmPolicy) return;
+
+    function handleConfirmKeys(e: KeyboardEvent) {
+      if (isTypingTarget(e.target)) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const policy = shortcutConfirmPolicy;
+        if (!policy) return;
+        setShortcutConfirmPolicy(null);
+        void runAction('/breaks/start', { code: policy.code });
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShortcutConfirmPolicy(null);
+      }
+    }
+
+    window.addEventListener('keydown', handleConfirmKeys);
+    return () => window.removeEventListener('keydown', handleConfirmKeys);
+  }, [shortcutConfirmPolicy, runAction]);
+
   return (
     <div className="dash-layout">
       {error ? <div className="alert alert-error">{error}</div> : null}
@@ -380,11 +485,11 @@ export function LeaderDashboard({
             <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>/ {activeBreak.expectedDurationMinutes}m</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.3rem' }}>
               <button className="button button-ok button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/end')}>
-                End
+                End <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>␣</kbd>
               </button>
               {activeBreakMinutes < 2 ? (
                 <button className="button button-danger button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/cancel')}>
-                  Cancel
+                  Cancel <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>Esc</kbd>
                 </button>
               ) : null}
             </div>
@@ -679,6 +784,47 @@ export function LeaderDashboard({
         </section>
       ) : null}
 
+      {shortcutConfirmPolicy ? (
+        <div
+          className="modal-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShortcutConfirmPolicy(null);
+            }
+          }}
+        >
+          <div className="modal shortcut-confirm-modal">
+            <h3>Confirm Break Shortcut</h3>
+            <p style={{ marginBottom: '0.35rem' }}>
+              Start <strong>{shortcutConfirmPolicy.code.toUpperCase()}</strong> - {shortcutConfirmPolicy.name}?
+            </p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Press <kbd>Enter</kbd> to confirm or <kbd>Esc</kbd> to cancel.
+            </p>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setShortcutConfirmPolicy(null)}
+              >
+                Cancel (Esc)
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  const policy = shortcutConfirmPolicy;
+                  if (!policy) return;
+                  setShortcutConfirmPolicy(null);
+                  void runAction('/breaks/start', { code: policy.code });
+                }}
+              >
+                Confirm (Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );

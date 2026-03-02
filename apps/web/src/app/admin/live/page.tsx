@@ -22,6 +22,26 @@ const BREAK_EMOJI_MAP: Record<string, string> = {
 const BREAK_SHORTCUT_CODE_TO_LABEL: Record<string, string> = {
   bwc: 'B', wc: 'W', cy: 'C', 'cf+1': '1', 'cf+2': '2', 'cf+3': '3',
 };
+const BREAK_SHORTCUT_KEY_TO_CODE: Record<string, string> = {
+  b: 'bwc',
+  w: 'wc',
+  c: 'cy',
+  '1': 'cf+1',
+  '2': 'cf+2',
+  '3': 'cf+3'
+};
+const BREAK_SHORTCUT_EVENT_CODE_TO_CODE: Record<string, string> = {
+  KeyB: 'bwc',
+  KeyW: 'wc',
+  KeyC: 'cy',
+  Digit1: 'cf+1',
+  Digit2: 'cf+2',
+  Digit3: 'cf+3',
+  Numpad1: 'cf+1',
+  Numpad2: 'cf+2',
+  Numpad3: 'cf+3'
+};
+const BREAK_OVER_LIMIT_TOAST_SEEN_KEY = 'admin_break_over_limit_toast_seen_v1';
 
 /* ── Types ── */
 type DutySession = {
@@ -89,10 +109,58 @@ type BreakHistoryItem = {
 type ShiftRequestsSummary = { pending: number };
 type DriverRequestsSummary = { pending: number };
 type RegistrationRequestsSummary = { pending: number; readyReview: number; actionable: number };
+type BreakStartResult = {
+  localDate?: string;
+  isOverLimit?: boolean;
+  usedCount?: number;
+  dailyLimit?: number;
+  breakPolicy?: {
+    code?: string;
+    name?: string;
+  };
+};
+type DashboardToast = {
+  id: string;
+  tone: 'warning' | 'success' | 'error';
+  text: string;
+};
 
 function queueDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
+}
+
+function loadOverLimitToastSeen(): Record<string, true> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(BREAK_OVER_LIMIT_TOAST_SEEN_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, true>;
+  } catch {
+    return {};
+  }
+}
+
+function consumeOverLimitToastToken(code: string, localDate: string): boolean {
+  if (typeof window === 'undefined') return true;
+  const normalizedCode = code.trim().toLowerCase();
+  const normalizedDate = localDate.trim();
+  if (!normalizedCode || !normalizedDate) return true;
+
+  const key = `${normalizedDate}:${normalizedCode}`;
+  const seen = loadOverLimitToastSeen();
+  if (seen[key]) return false;
+
+  seen[key] = true;
+  localStorage.setItem(BREAK_OVER_LIMIT_TOAST_SEEN_KEY, JSON.stringify(seen));
+  return true;
 }
 
 export default function AdminLivePage() {
@@ -115,7 +183,34 @@ export default function AdminLivePage() {
   const [isOffline, setIsOffline] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
   const [queueActions, setQueueActions] = useState<QueuedAction[]>([]);
+  const [toast, setToast] = useState<DashboardToast | null>(null);
+  const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
   const syncedIdsRef = useRef<Set<string>>(new Set());
+  const toastTimerRef = useRef<number | null>(null);
+
+  function showToast(
+    tone: DashboardToast['tone'],
+    text: string,
+    durationMs = 5500
+  ): void {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToast({ id: `${Date.now()}`, tone, text });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, durationMs);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const serverActiveSession = useMemo(() => sessions.find(s => s.status === 'ACTIVE') || null, [sessions]);
   const serverActiveBreak = useMemo(() => breakSessions.find(b => b.status === 'ACTIVE') || null, [breakSessions]);
@@ -175,6 +270,7 @@ export default function AdminLivePage() {
     if (policies.length === 0) return 'No break policies configured';
     return '';
   }, [activeBreak, activeSession, policies.length]);
+  const canStartBreak = !!activeSession && !activeBreak && !((personalLoading && !isOffline));
 
   const sessionBreaks = useMemo(() => {
     if (!activeSession) return [];
@@ -234,8 +330,31 @@ export default function AdminLivePage() {
 
     const result = await runQueuedAction(path, body);
     if (result.ok) {
-      setActionMsg(path === '/breaks/start' ? 'Break started' : 'Done');
-      setTimeout(() => setActionMsg(''), 3000);
+      if (path === '/breaks/start') {
+        const payload = result.data as BreakStartResult | undefined;
+        if (payload?.isOverLimit) {
+          const rawCode = payload.breakPolicy?.code || body?.code;
+          const code = typeof rawCode === 'string' && rawCode.trim() ? rawCode.trim() : 'break';
+          const localDate = payload.localDate || queueDate(new Date().toISOString());
+          const usageText =
+            typeof payload.usedCount === 'number' && typeof payload.dailyLimit === 'number'
+              ? ` (${payload.usedCount}/${payload.dailyLimit})`
+              : '';
+          const warningText = `${code.toUpperCase()} is over daily limit${usageText}. Break started anyway.`;
+
+          setActionMsg(warningText);
+          setTimeout(() => setActionMsg(''), 6000);
+          if (consumeOverLimitToastToken(code, localDate)) {
+            showToast('warning', warningText, 6000);
+          }
+        } else {
+          setActionMsg('Break started');
+          setTimeout(() => setActionMsg(''), 2500);
+        }
+      } else {
+        setActionMsg('Done');
+        setTimeout(() => setActionMsg(''), 3000);
+      }
       if (path.startsWith('/breaks')) {
         const br = await apiFetch<BreakSession[]>('/breaks/me/today').catch(() => null);
         if (br) setBreakSessions(br);
@@ -256,6 +375,84 @@ export default function AdminLivePage() {
     }
     setPersonalLoading(false);
   }
+
+  // Keyboard shortcuts while break is active: Space => End break, Esc => Cancel break (within 2 min)
+  useEffect(() => {
+    if (!activeBreak) return;
+    const activeBreakStartedAt = activeBreak.startedAt;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (shortcutConfirmPolicy || isTypingTarget(e.target)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        void runAction('/breaks/end');
+      } else if (e.code === 'Escape' && (Date.now() - new Date(activeBreakStartedAt).getTime()) < 120000) {
+        e.preventDefault();
+        void runAction('/breaks/cancel');
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeBreak, shortcutConfirmPolicy]);
+
+  // Keyboard shortcuts to start break (b/w/c/1/2/3) with confirmation modal
+  useEffect(() => {
+    function handleBreakStartShortcut(e: KeyboardEvent) {
+      if (
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.repeat ||
+        shortcutConfirmPolicy ||
+        !canStartBreak ||
+        isTypingTarget(e.target)
+      ) {
+        return;
+      }
+
+      const code =
+        BREAK_SHORTCUT_EVENT_CODE_TO_CODE[e.code] ||
+        BREAK_SHORTCUT_KEY_TO_CODE[e.key.toLowerCase()];
+      if (!code) return;
+
+      const policy = policies.find((item) => item.code.toLowerCase() === code);
+      if (!policy) return;
+
+      e.preventDefault();
+      setShortcutConfirmPolicy(policy);
+    }
+
+    window.addEventListener('keydown', handleBreakStartShortcut);
+    return () => window.removeEventListener('keydown', handleBreakStartShortcut);
+  }, [canStartBreak, policies, shortcutConfirmPolicy]);
+
+  // Confirmation modal controls: Enter confirms, Escape cancels
+  useEffect(() => {
+    if (!shortcutConfirmPolicy) return;
+
+    function handleConfirmKeys(e: KeyboardEvent) {
+      if (isTypingTarget(e.target)) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const policy = shortcutConfirmPolicy;
+        if (!policy) return;
+        setShortcutConfirmPolicy(null);
+        void runAction('/breaks/start', { code: policy.code });
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShortcutConfirmPolicy(null);
+      }
+    }
+
+    window.addEventListener('keydown', handleConfirmKeys);
+    return () => window.removeEventListener('keydown', handleConfirmKeys);
+  }, [shortcutConfirmPolicy]);
 
   function renderPolicyButton(policy: BreakPolicy) {
     const code = policy.code.toLowerCase();
@@ -334,6 +531,14 @@ export default function AdminLivePage() {
 
   return (
     <AppShell title="Dashboard" subtitle="Real-time overview" admin userRole="ADMIN">
+      {toast ? (
+        <div className={`floating-toast floating-toast-${toast.tone}`} role="status" aria-live="polite">
+          <span className="floating-toast-icon" aria-hidden="true">
+            {toast.tone === 'warning' ? '⚠️' : toast.tone === 'error' ? '⛔' : '✅'}
+          </span>
+          <span>{toast.text}</span>
+        </div>
+      ) : null}
       <div className="dash-layout">
         {error ? <div className="alert alert-error">{error}</div> : null}
 
@@ -354,11 +559,11 @@ export default function AdminLivePage() {
                 <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>/ {activeBreak.expectedDurationMinutes}m</span>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.3rem' }}>
                   <button className="button button-ok button-sm" disabled={personalLoading && !isOffline} onClick={() => void runAction('/breaks/end')}>
-                    End
+                    End <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>␣</kbd>
                   </button>
                   {activeBreakMinutes < 2 ? (
                     <button className="button button-danger button-sm" disabled={personalLoading && !isOffline} onClick={() => void runAction('/breaks/cancel')}>
-                      Cancel
+                      Cancel <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>Esc</kbd>
                     </button>
                   ) : null}
                 </div>
@@ -537,6 +742,48 @@ export default function AdminLivePage() {
             </div>
           </article>
         </section>
+
+        {shortcutConfirmPolicy ? (
+          <div
+            className="modal-overlay"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setShortcutConfirmPolicy(null);
+              }
+            }}
+          >
+            <div className="modal shortcut-confirm-modal">
+              <h3>Confirm Break Shortcut</h3>
+              <p style={{ marginBottom: '0.35rem' }}>
+                Start <strong>{shortcutConfirmPolicy.code.toUpperCase()}</strong> - {shortcutConfirmPolicy.name}?
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                Press <kbd>Enter</kbd> to confirm or <kbd>Esc</kbd> to cancel.
+              </p>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => setShortcutConfirmPolicy(null)}
+                >
+                  Cancel (Esc)
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => {
+                    const policy = shortcutConfirmPolicy;
+                    if (!policy) return;
+                    setShortcutConfirmPolicy(null);
+                    void runAction('/breaks/start', { code: policy.code });
+                  }}
+                >
+                  Confirm (Enter)
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );
