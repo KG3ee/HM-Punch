@@ -71,7 +71,7 @@ type LiveDuty = {
   punchedOnAt: string;
   isLate: boolean;
   lateMinutes: number;
-  user: { displayName: string };
+  user: { id: string; displayName: string };
   breakSessions: LiveBreak[];
 };
 type LiveBoard = {
@@ -149,6 +149,32 @@ type DriverInfo = {
   driverStatus: string | null;
 };
 
+type ViolationReason = 'LEFT_WITHOUT_PUNCH' | 'UNAUTHORIZED_ABSENCE' | 'OTHER';
+type ViolationStatus = 'PENDING' | 'LEADER_VALID' | 'LEADER_INVALID' | 'CONFIRMED' | 'REJECTED';
+type ViolationSource = 'MEMBER_REPORT' | 'LEADER_OBSERVED' | 'ADMIN_OBSERVED';
+
+type LeaderViolationCase = {
+  id: string;
+  source: ViolationSource;
+  status: ViolationStatus;
+  reason: ViolationReason;
+  occurredAt: string;
+  localDate: string;
+  note: string | null;
+  createdAt: string;
+  leaderReviewedAt?: string | null;
+  leaderReviewNote?: string | null;
+  adminReviewedAt?: string | null;
+  adminReviewNote?: string | null;
+  reporterLabel?: string | null;
+  accusedUser: {
+    id: string;
+    displayName: string;
+    username: string;
+    team?: { id: string; name: string } | null;
+  };
+};
+
 function isTypingTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   if (!element) return false;
@@ -185,6 +211,12 @@ const DRIVER_STATUS: Record<string, { emoji: string; label: string; cls: string 
   OFFLINE: { emoji: '⚫', label: 'Off Duty', cls: '' },
 };
 
+const VIOLATION_REASON_LABEL: Record<ViolationReason, string> = {
+  LEFT_WITHOUT_PUNCH: 'Left Without Punch',
+  UNAUTHORIZED_ABSENCE: 'Unauthorized Absence',
+  OTHER: 'Other',
+};
+
 export function LeaderDashboard({
   activeSession,
   activeDutyMinutes,
@@ -208,13 +240,20 @@ export function LeaderDashboard({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [violations, setViolations] = useState<LeaderViolationCase[]>([]);
   const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
 
   const [actionId, setActionId] = useState<string | null>(null);
+  const [violationActionId, setViolationActionId] = useState<string | null>(null);
 
   const [showTeam, setShowTeam] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showTodayBreaks, setShowTodayBreaks] = useState(false);
+  const [showViolations, setShowViolations] = useState(true);
+  const [showObservedModal, setShowObservedModal] = useState(false);
+  const [observedAccusedUserId, setObservedAccusedUserId] = useState('');
+  const [observedReason, setObservedReason] = useState<ViolationReason>('LEFT_WITHOUT_PUNCH');
+  const [observedNote, setObservedNote] = useState('');
   const [historyFrom, setHistoryFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
@@ -224,18 +263,20 @@ export function LeaderDashboard({
   /* ── Data loading ── */
   const loadTeam = useCallback(async () => {
     try {
-      const [live, breaks, reqs, mems, drvs] = await Promise.all([
+      const [live, breaks, reqs, mems, drvs, vios] = await Promise.all([
         apiFetch<LiveBoard>('/leader/live'),
         apiFetch<BreakHistoryItem[]>('/leader/breaks?limit=250'),
         apiFetch<ShiftChangeRequest[]>('/leader/requests'),
         apiFetch<TeamMember[]>('/leader/team'),
         apiFetch<DriverInfo[]>('/leader/drivers'),
+        apiFetch<LeaderViolationCase[]>('/leader/violations?limit=200'),
       ]);
       setLiveData(live);
       setBreakHistory(breaks);
       setRequests(reqs);
       setMembers(mems);
       setDrivers(drvs);
+      setViolations(vios);
     } catch { /* retry on next interval */ }
   }, []);
 
@@ -290,9 +331,69 @@ export function LeaderDashboard({
     } finally { setActionId(null); }
   }
 
+  async function triageViolation(id: string, decision: 'LEADER_VALID' | 'LEADER_INVALID') {
+    setViolationActionId(id);
+    setError('');
+    try {
+      await apiFetch(`/leader/violations/${id}/triage`, {
+        method: 'POST',
+        body: JSON.stringify({ decision }),
+      });
+      setMessage(decision === 'LEADER_VALID' ? 'Violation marked valid' : 'Violation marked invalid');
+      await loadTeam();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to triage violation');
+    } finally {
+      setViolationActionId(null);
+    }
+  }
+
+  async function submitObservedViolation() {
+    if (!observedAccusedUserId) {
+      setError('Please select an accused user from active list');
+      return;
+    }
+    setViolationActionId('observed-create');
+    setError('');
+    try {
+      await apiFetch('/leader/violations/observed', {
+        method: 'POST',
+        body: JSON.stringify({
+          accusedUserId: observedAccusedUserId,
+          reason: observedReason,
+          note: observedNote.trim() || undefined,
+        }),
+      });
+      setShowObservedModal(false);
+      setObservedAccusedUserId('');
+      setObservedReason('LEFT_WITHOUT_PUNCH');
+      setObservedNote('');
+      setMessage('Observed incident submitted');
+      await loadTeam();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit observed incident');
+    } finally {
+      setViolationActionId(null);
+    }
+  }
+
   /* ── Derived data ── */
   const pendingReqs = useMemo(() => requests.filter(r => r.status === 'PENDING'), [requests]);
   const resolvedReqs = useMemo(() => requests.filter(r => r.status !== 'PENDING'), [requests]);
+  const pendingViolations = useMemo(
+    () => violations.filter((v) => v.status === 'PENDING' || v.status === 'LEADER_VALID' || v.status === 'LEADER_INVALID'),
+    [violations]
+  );
+  const resolvedViolations = useMemo(
+    () => violations.filter((v) => v.status === 'CONFIRMED' || v.status === 'REJECTED'),
+    [violations]
+  );
+  const activeAccusedOptions = useMemo(() => {
+    return (liveData?.activeDutySessions || []).map((session) => ({
+      userId: session.user.id,
+      label: `${session.user.displayName}`,
+    }));
+  }, [liveData?.activeDutySessions]);
 
   const topRowPolicies = useMemo(
     () => TOP_BREAK_CODES.map(code => policies.find(p => p.code.toLowerCase() === code)).filter((p): p is BreakPolicy => Boolean(p)),
@@ -557,6 +658,12 @@ export function LeaderDashboard({
             {pendingReqs.length}
           </p>
         </article>
+        <article className="kpi">
+          <p className="kpi-label">Violations</p>
+          <p className="kpi-value" style={{ color: pendingViolations.length > 0 ? 'var(--danger)' : undefined }}>
+            {pendingViolations.length}
+          </p>
+        </article>
       </section>
 
       {/* ═══ 3. MEMBER REQUESTS ═══ */}
@@ -647,7 +754,105 @@ export function LeaderDashboard({
         </article>
       </section>
 
-      {/* ═══ 5. TEAM MEMBERS (collapsible, right under Who's On Duty) ═══ */}
+      {/* ═══ 5. VIOLATIONS ═══ */}
+      <section className="dash-section">
+        <div className="dash-collapse-header" onClick={() => setShowViolations((v) => !v)}>
+          <h2 className="dash-section-title" style={{ marginBottom: 0 }}>
+            ⚠️ Violation Reports {pendingViolations.length > 0 ? <span className="dash-badge">{pendingViolations.length}</span> : null}
+          </h2>
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{showViolations ? '▲ Hide' : '▼ Show'}</span>
+        </div>
+        {showViolations ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>
+                Reporter identity is hidden from Leader.
+              </p>
+              <button
+                type="button"
+                className="button button-danger button-sm"
+                disabled={activeAccusedOptions.length === 0 || !!violationActionId}
+                onClick={() => {
+                  if (!observedAccusedUserId && activeAccusedOptions.length > 0) {
+                    setObservedAccusedUserId(activeAccusedOptions[0].userId);
+                  }
+                  setShowObservedModal(true);
+                }}
+              >
+                Observed Incident
+              </button>
+            </div>
+            {pendingViolations.length > 0 ? (
+              <div className="dash-cards">
+                {pendingViolations.map((item) => {
+                  const triageLocked = item.status === 'CONFIRMED' || item.status === 'REJECTED';
+                  return (
+                    <article key={item.id} className="card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <strong style={{ fontSize: '0.85rem' }}>{item.accusedUser.displayName}</strong>
+                        <span className={`tag ${item.status === 'LEADER_VALID' ? 'ok' : item.status === 'LEADER_INVALID' ? 'danger' : 'warning'}`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', fontSize: '0.76rem', marginBottom: '0.4rem' }}>
+                        <span>{VIOLATION_REASON_LABEL[item.reason]}</span>
+                        <span className="mono">{item.localDate}</span>
+                        <span>{item.source === 'MEMBER_REPORT' ? 'Reporter: Anonymous' : 'Observed'}</span>
+                      </div>
+                      {item.note ? (
+                        <p style={{ fontSize: '0.76rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>{item.note}</p>
+                      ) : null}
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          className="button button-sm button-ok"
+                          disabled={triageLocked || !!violationActionId}
+                          onClick={() => void triageViolation(item.id, 'LEADER_VALID')}
+                        >
+                          {violationActionId === item.id ? '…' : 'Recommend Valid'}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-sm button-danger"
+                          disabled={triageLocked || !!violationActionId}
+                          onClick={() => void triageViolation(item.id, 'LEADER_INVALID')}
+                        >
+                          {violationActionId === item.id ? '…' : 'Recommend Invalid'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>No pending violation reports.</p>
+            )}
+
+            {resolvedViolations.length > 0 ? (
+              <article className="card">
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Accused</th><th>Reason</th><th>Date</th><th>Source</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {resolvedViolations.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.accusedUser.displayName}</td>
+                          <td>{VIOLATION_REASON_LABEL[item.reason]}</td>
+                          <td className="mono">{item.localDate}</td>
+                          <td>{item.source === 'MEMBER_REPORT' ? 'Anonymous report' : 'Observed'}</td>
+                          <td><span className={`tag ${item.status === 'CONFIRMED' ? 'ok' : 'danger'}`}>{item.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            ) : null}
+          </>
+        ) : null}
+      </section>
+
+      {/* ═══ 6. TEAM MEMBERS (collapsible, right under Who's On Duty) ═══ */}
       <section className="dash-section">
         <div className="dash-collapse-header" onClick={() => setShowTeam(v => !v)}>
           <h2 className="dash-section-title" style={{ marginBottom: 0 }}>👥 Team Members ({members.length})</h2>
@@ -674,7 +879,7 @@ export function LeaderDashboard({
         ) : null}
       </section>
 
-      {/* ═══ 6. ATTENDANCE HISTORY (collapsible) ═══ */}
+      {/* ═══ 7. ATTENDANCE HISTORY (collapsible) ═══ */}
       <section className="dash-section">
         <div className="dash-collapse-header" onClick={() => setShowHistory(v => !v)}>
           <h2 className="dash-section-title" style={{ marginBottom: 0 }}>📊 Attendance History</h2>
@@ -716,7 +921,7 @@ export function LeaderDashboard({
         ) : null}
       </section>
 
-      {/* ═══ 7. TODAY BREAKS ═══ */}
+      {/* ═══ 8. TODAY BREAKS ═══ */}
       <section className="dash-section">
         <div className="dash-collapse-header" onClick={() => setShowTodayBreaks(v => !v)}>
           <h2 className="dash-section-title" style={{ marginBottom: 0 }}>☕ Today Breaks</h2>
@@ -745,7 +950,7 @@ export function LeaderDashboard({
         ) : null}
       </section>
 
-      {/* ═══ 8. DRIVERS ═══ */}
+      {/* ═══ 9. DRIVERS ═══ */}
       <section className="dash-section">
         <h2 className="dash-section-title">🚗 Drivers</h2>
         <article className="card">
@@ -768,7 +973,7 @@ export function LeaderDashboard({
         </article>
       </section>
 
-      {/* ═══ 8. PERSONAL MONTHLY STATS ═══ */}
+      {/* ═══ 10. PERSONAL MONTHLY STATS ═══ */}
       {monthlySummary ? (
         <section className="kpi-grid" style={{ opacity: 0.8 }}>
           <article className="kpi">
@@ -826,6 +1031,77 @@ export function LeaderDashboard({
                 }}
               >
                 Confirm (Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showObservedModal ? (
+        <div
+          className="modal-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !violationActionId) {
+              setShowObservedModal(false);
+            }
+          }}
+        >
+          <div className="modal">
+            <h3>Create Observed Incident</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.6rem' }}>
+              Use this when no member report was submitted.
+            </p>
+            <label style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Accused User (Active Duty)</label>
+            <select
+              className="select"
+              value={observedAccusedUserId}
+              onChange={(e) => setObservedAccusedUserId(e.target.value)}
+              disabled={!!violationActionId}
+            >
+              {activeAccusedOptions.map((option) => (
+                <option key={option.userId} value={option.userId}>{option.label}</option>
+              ))}
+            </select>
+
+            <label style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Reason</label>
+            <select
+              className="select"
+              value={observedReason}
+              onChange={(e) => setObservedReason(e.target.value as ViolationReason)}
+              disabled={!!violationActionId}
+            >
+              <option value="LEFT_WITHOUT_PUNCH">Left Without Punch</option>
+              <option value="UNAUTHORIZED_ABSENCE">Unauthorized Absence</option>
+              <option value="OTHER">Other</option>
+            </select>
+
+            <label style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Note (optional)</label>
+            <textarea
+              className="input"
+              rows={3}
+              maxLength={200}
+              value={observedNote}
+              onChange={(e) => setObservedNote(e.target.value)}
+              disabled={!!violationActionId}
+              placeholder="Short note (optional)"
+            />
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setShowObservedModal(false)}
+                disabled={!!violationActionId}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button button-danger"
+                disabled={!observedAccusedUserId || !!violationActionId}
+                onClick={() => void submitObservedViolation()}
+              >
+                {violationActionId === 'observed-create' ? 'Submitting…' : 'Submit Incident'}
               </button>
             </div>
           </div>

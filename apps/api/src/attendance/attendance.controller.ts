@@ -39,6 +39,11 @@ export class AttendanceController {
     return this.attendanceService.getMonthlySummary(authUser.sub);
   }
 
+  @Get("live/public")
+  async getPublicLive() {
+    return this.attendanceService.getPublicLiveBoard();
+  }
+
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get("/admin/live")

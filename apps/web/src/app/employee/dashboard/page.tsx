@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { apiFetch } from '@/lib/api';
@@ -94,6 +94,24 @@ type DashboardToast = {
   tone: 'warning' | 'success' | 'error';
   text: string;
 };
+
+type PublicLiveSession = {
+  userId: string;
+  displayName: string;
+  teamName: string;
+  punchedOnAt: string;
+  activeBreak: {
+    code: string;
+    startedAt: string;
+  } | null;
+};
+
+type PublicLiveBoard = {
+  localDate: string;
+  sessions: PublicLiveSession[];
+};
+
+type ViolationReason = 'LEFT_WITHOUT_PUNCH' | 'UNAUTHORIZED_ABSENCE' | 'OTHER';
 
 const DASHBOARD_CACHE_KEY = 'employee_dashboard_cache_v1';
 const BREAK_OVER_LIMIT_TOAST_SEEN_KEY = 'break_over_limit_toast_seen_v1';
@@ -216,6 +234,12 @@ export default function EmployeeDashboardPage() {
   const [serverTimeZone, setServerTimeZone] = useState('');
   const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [publicLiveSessions, setPublicLiveSessions] = useState<PublicLiveSession[]>([]);
+  const [showViolationModal, setShowViolationModal] = useState(false);
+  const [violationAccusedUserId, setViolationAccusedUserId] = useState('');
+  const [violationReason, setViolationReason] = useState<ViolationReason>('LEFT_WITHOUT_PUNCH');
+  const [violationNote, setViolationNote] = useState('');
+  const [violationSubmitting, setViolationSubmitting] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const syncedActionIdsRef = useRef<Set<string>>(new Set());
   const toastTimerRef = useRef<number | null>(null);
@@ -351,6 +375,22 @@ export default function EmployeeDashboardPage() {
     return Math.max(0, Math.round((nowTick - startedAt) / 60000));
   }, [activeSession, nowTick]);
 
+  const loadPublicBreakBoard = useCallback(async (silent = true) => {
+    try {
+      const data = await apiFetch<PublicLiveBoard>('/attendance/live/public');
+      setPublicLiveSessions(data.sessions);
+    } catch (e) {
+      if (!silent) {
+        setError(e instanceof Error ? e.message : 'Failed to load public break board');
+      }
+    }
+  }, []);
+
+  const publicBreakSessions = useMemo(
+    () => publicLiveSessions.filter((session) => session.activeBreak),
+    [publicLiveSessions]
+  );
+
   useEffect(() => { void loadData(); }, []);
 
   // Subscribe to queue changes
@@ -408,6 +448,19 @@ export default function EmployeeDashboardPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!me || me.role === 'ADMIN' || me.role === 'DRIVER') return;
+    void loadPublicBreakBoard(true);
+
+    const timer = window.setInterval(() => {
+      if (!document.hidden) {
+        void loadPublicBreakBoard(true);
+      }
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [loadPublicBreakBoard, me]);
 
   // Keyboard shortcuts while break is active: Space → End break, Esc → Cancel break
   useEffect(() => {
@@ -675,6 +728,20 @@ export default function EmployeeDashboardPage() {
     }
     return '-';
   }
+
+  function formatBreakBoardMinutes(startedAt: string): string {
+    const elapsed = Math.max(0, Math.round((nowTick - new Date(startedAt).getTime()) / 60000));
+    return `${elapsed}m`;
+  }
+
+  const violationAccusedOptions = useMemo(() => {
+    return publicLiveSessions
+      .map((session) => ({
+        userId: session.userId,
+        label: `${session.displayName} (${session.teamName})`,
+      }))
+      .filter((item) => item.userId !== me?.id);
+  }, [me?.id, publicLiveSessions]);
 
   const breakBlockedReason = useMemo(() => {
     if (!activeSession) return 'Punch ON first';
@@ -1009,6 +1076,38 @@ export default function EmployeeDashboardPage() {
     </div>
   );
 
+  async function submitViolationReport(): Promise<void> {
+    if (!violationAccusedUserId) {
+      setError('Please select an accused user');
+      return;
+    }
+
+    setViolationSubmitting(true);
+    setError('');
+    setActionMessage('');
+
+    try {
+      await apiFetch('/violations/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          accusedUserId: violationAccusedUserId,
+          reason: violationReason,
+          note: violationNote.trim() || undefined,
+        }),
+      });
+      setShowViolationModal(false);
+      setViolationAccusedUserId('');
+      setViolationReason('LEFT_WITHOUT_PUNCH');
+      setViolationNote('');
+      setActionMessage('Violation report submitted');
+      showToast('success', 'Violation report submitted. Reporter identity is visible to Admin only.', 4500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to submit violation report');
+    } finally {
+      setViolationSubmitting(false);
+    }
+  }
+
   return (
     <AppShell
       title="Dashboard"
@@ -1250,6 +1349,63 @@ export default function EmployeeDashboardPage() {
                   )}
                 </article>
               ) : null}
+
+              {me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
+                <article className="card">
+                  <h3>Who&apos;s On Break (All Teams)</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>
+                      Live list updates every 15s.
+                    </p>
+                    <button
+                      type="button"
+                      className="button button-danger button-sm"
+                      disabled={violationAccusedOptions.length === 0 || violationSubmitting}
+                      onClick={() => {
+                        if (!violationAccusedUserId && violationAccusedOptions.length > 0) {
+                          setViolationAccusedUserId(violationAccusedOptions[0].userId);
+                        }
+                        setShowViolationModal(true);
+                      }}
+                    >
+                      Report Violation
+                    </button>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Team</th>
+                          <th>Break</th>
+                          <th>Start</th>
+                          <th>Elapsed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {publicBreakSessions.map((session) => (
+                          <tr key={`${session.userId}-${session.activeBreak?.startedAt || 'none'}`}>
+                            <td>{session.displayName}</td>
+                            <td>{session.teamName}</td>
+                            <td>
+                              {session.activeBreak ? (
+                                <span className="tag warning">{session.activeBreak.code.toUpperCase()}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="mono">
+                              {session.activeBreak ? fmtTime(session.activeBreak.startedAt) : '—'}
+                            </td>
+                            <td>{session.activeBreak ? formatBreakBoardMinutes(session.activeBreak.startedAt) : '—'}</td>
+                          </tr>
+                        ))}
+                        {publicBreakSessions.length === 0 ? (
+                          <tr><td colSpan={5} className="table-empty">No one is on break right now</td></tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ) : null}
             </div>
 
             {/* Right column — Current Session */}
@@ -1369,6 +1525,77 @@ export default function EmployeeDashboardPage() {
                     }}
                   >
                     Confirm (Enter)
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {showViolationModal ? (
+            <div
+              className="modal-overlay"
+              onClick={(event) => {
+                if (event.target === event.currentTarget && !violationSubmitting) {
+                  setShowViolationModal(false);
+                }
+              }}
+            >
+              <div className="modal">
+                <h3>Report Violation</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
+                  Reporter identity is visible to Admin only.
+                </p>
+                <label style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Accused User</label>
+                <select
+                  className="select"
+                  value={violationAccusedUserId}
+                  onChange={(e) => setViolationAccusedUserId(e.target.value)}
+                  disabled={violationSubmitting}
+                >
+                  {violationAccusedOptions.map((option) => (
+                    <option key={option.userId} value={option.userId}>{option.label}</option>
+                  ))}
+                </select>
+
+                <label style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Reason</label>
+                <select
+                  className="select"
+                  value={violationReason}
+                  onChange={(e) => setViolationReason(e.target.value as ViolationReason)}
+                  disabled={violationSubmitting}
+                >
+                  <option value="LEFT_WITHOUT_PUNCH">Left Without Punch</option>
+                  <option value="UNAUTHORIZED_ABSENCE">Unauthorized Absence</option>
+                  <option value="OTHER">Other</option>
+                </select>
+
+                <label style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Note (optional)</label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  maxLength={200}
+                  value={violationNote}
+                  onChange={(e) => setViolationNote(e.target.value)}
+                  disabled={violationSubmitting}
+                  placeholder="Short note (optional)"
+                />
+
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    onClick={() => setShowViolationModal(false)}
+                    disabled={violationSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-danger"
+                    disabled={!violationAccusedUserId || violationSubmitting}
+                    onClick={() => void submitViolationReport()}
+                  >
+                    {violationSubmitting ? 'Submitting…' : 'Submit Report'}
                   </button>
                 </div>
               </div>

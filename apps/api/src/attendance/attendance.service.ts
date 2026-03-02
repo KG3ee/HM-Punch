@@ -326,6 +326,61 @@ export class AttendanceService {
     };
   }
 
+  async getPublicLiveBoard() {
+    const timezone = process.env.APP_TIMEZONE || "Asia/Dubai";
+    const localDate = formatDateInZone(new Date(), timezone);
+
+    const activeDutySessions = await this.prisma.dutySession.findMany({
+      where: { status: DutySessionStatus.ACTIVE },
+      select: {
+        id: true,
+        punchedOnAt: true,
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        breakSessions: {
+          where: { status: "ACTIVE" },
+          select: {
+            startedAt: true,
+            breakPolicy: {
+              select: {
+                code: true,
+              },
+            },
+          },
+          orderBy: { startedAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: { punchedOnAt: "asc" },
+    });
+
+    return {
+      localDate,
+      sessions: activeDutySessions.map((session) => ({
+        userId: session.user.id,
+        displayName: session.user.displayName,
+        teamName: session.team?.name || "No Team",
+        punchedOnAt: session.punchedOnAt,
+        activeBreak: session.breakSessions[0]
+          ? {
+              code: session.breakSessions[0].breakPolicy.code,
+              startedAt: session.breakSessions[0].startedAt,
+            }
+          : null,
+      })),
+    };
+  }
+
   async listAttendance(params: {
     from: string;
     to: string;

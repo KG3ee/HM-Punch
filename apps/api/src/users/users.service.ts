@@ -196,22 +196,47 @@ export class UsersService {
         data: { createdById: null },
       });
 
-      // 5. Delete Breaks (must be before DutySessions if linked)
+      // 5. Violation workflow cleanup
+      await tx.violationPointEntry.updateMany({
+        where: { createdByUserId: id },
+        data: { createdByUserId: null },
+      });
+      await tx.violationPointEntry.deleteMany({
+        where: { userId: id },
+      });
+      await tx.violationCase.updateMany({
+        where: { leaderReviewedById: id },
+        data: { leaderReviewedById: null },
+      });
+      await tx.violationCase.updateMany({
+        where: { adminReviewedById: id },
+        data: { adminReviewedById: null },
+      });
+      await tx.violationCase.deleteMany({
+        where: {
+          OR: [
+            { accusedUserId: id },
+            { createdByUserId: id },
+          ],
+        },
+      });
+
+      // 6. Delete Breaks (must be before DutySessions if linked)
       await tx.breakSession.deleteMany({
         where: { userId: id },
       });
 
-      // 6. Delete DutySessions
+      // 7. Delete DutySessions
       await tx.dutySession.deleteMany({
         where: { userId: id },
       });
 
-      // 7. Delete Shift Assignments
+      // 8. Delete Shift Assignments
       await tx.shiftAssignment.deleteMany({
         where: { targetType: "USER", targetId: id },
       });
 
-      // 8. Delete User
+      // 9. Delete User
       await tx.user.delete({
         where: { id },
       });
