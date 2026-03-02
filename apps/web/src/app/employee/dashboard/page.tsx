@@ -83,6 +83,8 @@ type BreakStartResult = {
   isOverLimit?: boolean;
   usedCount?: number;
   dailyLimit?: number;
+  quotaScope?: 'DUTY_SESSION';
+  quotaScopeId?: string;
   breakPolicy?: {
     code?: string;
     name?: string;
@@ -197,13 +199,19 @@ function loadOverLimitToastSeen(): Record<string, true> {
   }
 }
 
-function consumeOverLimitToastToken(code: string, localDate: string): boolean {
+function consumeOverLimitToastToken(
+  code: string,
+  quotaScopeId?: string,
+  localDate?: string,
+): boolean {
   if (typeof window === 'undefined') return true;
   const normalizedCode = code.trim().toLowerCase();
-  const normalizedDate = localDate.trim();
-  if (!normalizedCode || !normalizedDate) return true;
+  const normalizedScopeId = quotaScopeId?.trim();
+  const normalizedDate = localDate?.trim();
+  const scope = normalizedScopeId || normalizedDate;
+  if (!normalizedCode || !scope) return true;
 
-  const key = `${normalizedDate}:${normalizedCode}`;
+  const key = `${scope}:${normalizedCode}`;
   const seen = loadOverLimitToastSeen();
   if (seen[key]) return false;
 
@@ -669,12 +677,12 @@ export default function EmployeeDashboardPage() {
             typeof payload.usedCount === 'number' && typeof payload.dailyLimit === 'number'
               ? ` (${payload.usedCount}/${payload.dailyLimit})`
               : '';
-          const warningText = `${code.toUpperCase()} is over daily limit${usageText}. Break started anyway.`;
+          const warningText = `${code.toUpperCase()} is over session limit${usageText}. Break started anyway.`;
 
           setWarningMessage(warningText);
           setTimeout(() => setWarningMessage(''), 6000);
 
-          if (consumeOverLimitToastToken(code, localDate)) {
+          if (consumeOverLimitToastToken(code, payload.quotaScopeId, localDate)) {
             showToast('warning', warningText, 6000);
           }
         } else {
@@ -785,7 +793,7 @@ export default function EmployeeDashboardPage() {
         className="button-chip"
         disabled={(loading && !isOffline) || !activeSession || !!activeBreak}
         onClick={() => void runAction('/breaks/start', { code: policy.code })}
-        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/day${shortcutLabel ? ` · Shortcut ${shortcutLabel}` : ''}`}
+        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/session${shortcutLabel ? ` · Shortcut ${shortcutLabel}` : ''}`}
       >
         {shortcutLabel ? (
           <span className="chip-shortcut" aria-hidden="true">{shortcutLabel}</span>

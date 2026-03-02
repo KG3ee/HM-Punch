@@ -446,7 +446,7 @@ export function LeaderDashboard({
         className="button-chip"
         disabled={(loading && !isOffline) || !activeSession || !!activeBreak}
         onClick={() => void runAction('/breaks/start', { code: policy.code })}
-        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/day${shortcutLabel ? ` · Shortcut ${shortcutLabel}` : ''}`}
+        title={`${policy.name} — ${policy.expectedDurationMinutes}m, limit ${policy.dailyLimit}/session${shortcutLabel ? ` · Shortcut ${shortcutLabel}` : ''}`}
       >
         {shortcutLabel ? <span className="chip-shortcut" aria-hidden="true">{shortcutLabel}</span> : null}
         <span className="chip-emoji">{emoji}</span>

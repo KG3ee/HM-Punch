@@ -210,9 +210,8 @@ export class BreaksService {
 
     const usedCount = await this.prisma.breakSession.count({
       where: {
-        userId: user.id,
+        dutySessionId: activeDuty.id,
         breakPolicyId: policy.id,
-        localDate,
         status: {
           in: [
             BreakSessionStatus.ACTIVE,
@@ -251,6 +250,8 @@ export class BreaksService {
         payload: {
           code: policy.code,
           localDate,
+          quotaScope: "DUTY_SESSION",
+          quotaScopeId: activeDuty.id,
           usedCountAfter: usedCount + 1,
           dailyLimit: policy.dailyLimit,
           isOverLimit,
@@ -269,6 +270,8 @@ export class BreaksService {
       isOverLimit,
       usedCount: usedCount + 1,
       dailyLimit: policy.dailyLimit,
+      quotaScope: "DUTY_SESSION" as const,
+      quotaScopeId: activeDuty.id,
     };
   }
 
