@@ -1645,3 +1645,53 @@ main > .shell {
   line-height: 1.45;
   word-break: break-word;
 }
+
+.floating-toast {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  max-width: min(420px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line-hover);
+  box-shadow: var(--shadow);
+  z-index: 120;
+  font-size: 0.84rem;
+  font-weight: 600;
+  animation: fadeIn 140ms ease-out;
+}
+
+.floating-toast-warning {
+  background: color-mix(in srgb, var(--warning) 18%, var(--card-solid));
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--warning) 36%, var(--line-hover));
+}
+
+.floating-toast-success {
+  background: color-mix(in srgb, var(--ok) 16%, var(--card-solid));
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ok) 34%, var(--line-hover));
+}
+
+.floating-toast-error {
+  background: color-mix(in srgb, var(--danger) 16%, var(--card-solid));
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--line-hover));
+}
+
+.floating-toast-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .floating-toast {
+    top: 74px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+}

@@ -78,7 +78,25 @@ type DashboardCache = {
   cachedAt: string;
 };
 
+type BreakStartResult = {
+  localDate?: string;
+  isOverLimit?: boolean;
+  usedCount?: number;
+  dailyLimit?: number;
+  breakPolicy?: {
+    code?: string;
+    name?: string;
+  };
+};
+
+type DashboardToast = {
+  id: string;
+  tone: 'warning' | 'success' | 'error';
+  text: string;
+};
+
 const DASHBOARD_CACHE_KEY = 'employee_dashboard_cache_v1';
+const BREAK_OVER_LIMIT_TOAST_SEEN_KEY = 'break_over_limit_toast_seen_v1';
 
 const TOP_BREAK_CODES = ['bwc', 'wc', 'cy'] as const;
 const BOTTOM_BREAK_CODES = ['cf+1', 'cf+2', 'cf+3'] as const;
@@ -150,6 +168,32 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable;
 }
 
+function loadOverLimitToastSeen(): Record<string, true> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(BREAK_OVER_LIMIT_TOAST_SEEN_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, true>;
+  } catch {
+    return {};
+  }
+}
+
+function consumeOverLimitToastToken(code: string, localDate: string): boolean {
+  if (typeof window === 'undefined') return true;
+  const normalizedCode = code.trim().toLowerCase();
+  const normalizedDate = localDate.trim();
+  if (!normalizedCode || !normalizedDate) return true;
+
+  const key = `${normalizedDate}:${normalizedCode}`;
+  const seen = loadOverLimitToastSeen();
+  if (seen[key]) return false;
+
+  seen[key] = true;
+  localStorage.setItem(BREAK_OVER_LIMIT_TOAST_SEEN_KEY, JSON.stringify(seen));
+  return true;
+}
+
 export default function EmployeeDashboardPage() {
   const router = useRouter();
   const [me, setMe] = useState<MeUser | null>(null);
@@ -161,6 +205,8 @@ export default function EmployeeDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
+  const [warningMessage, setWarningMessage] = useState('');
+  const [toast, setToast] = useState<DashboardToast | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
   const [pendingActions, setPendingActions] = useState(0);
   const [failedActions, setFailedActions] = useState(0);
@@ -172,6 +218,31 @@ export default function EmployeeDashboardPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const syncedActionIdsRef = useRef<Set<string>>(new Set());
+  const toastTimerRef = useRef<number | null>(null);
+
+  function showToast(
+    tone: DashboardToast['tone'],
+    text: string,
+    durationMs = 5500,
+  ): void {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToast({ id: `${Date.now()}`, tone, text });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, durationMs);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -524,6 +595,7 @@ export default function EmployeeDashboardPage() {
 
   async function runAction(path: string, body?: Record<string, unknown>): Promise<void> {
     setActionMessage('');
+    setWarningMessage('');
     setError('');
 
     const knownOffline = !navigator.onLine;
@@ -534,8 +606,32 @@ export default function EmployeeDashboardPage() {
     const result = await runQueuedAction(path, body);
 
     if (result.ok) {
-      setActionMessage('Action completed');
-      setTimeout(() => setActionMessage(''), 3000);
+      if (path === '/breaks/start') {
+        const payload = result.data as BreakStartResult | undefined;
+        if (payload?.isOverLimit) {
+          const rawCode = payload.breakPolicy?.code || body?.code;
+          const code = typeof rawCode === 'string' && rawCode.trim() ? rawCode.trim() : 'break';
+          const localDate = payload.localDate || queueDate(new Date().toISOString());
+          const usageText =
+            typeof payload.usedCount === 'number' && typeof payload.dailyLimit === 'number'
+              ? ` (${payload.usedCount}/${payload.dailyLimit})`
+              : '';
+          const warningText = `${code.toUpperCase()} is over daily limit${usageText}. Break started anyway.`;
+
+          setWarningMessage(warningText);
+          setTimeout(() => setWarningMessage(''), 6000);
+
+          if (consumeOverLimitToastToken(code, localDate)) {
+            showToast('warning', warningText, 6000);
+          }
+        } else {
+          setActionMessage('Break started');
+          setTimeout(() => setActionMessage(''), 2500);
+        }
+      } else {
+        setActionMessage('Action completed');
+        setTimeout(() => setActionMessage(''), 3000);
+      }
 
       if (path === '/attendance/on' || path === '/attendance/off') {
         await loadTargeted(['sessions', 'breaks', 'summary']);
@@ -825,6 +921,7 @@ export default function EmployeeDashboardPage() {
   const notifications = useMemo(() => {
     const list: { id: string; type: string; text: string; action?: boolean; link?: string }[] = [];
     if (error) list.push({ id: 'error', type: 'error', text: error });
+    if (warningMessage) list.push({ id: 'warn-msg', type: 'warning', text: warningMessage });
     if (actionMessage) list.push({ id: 'msg', type: 'success', text: actionMessage });
     if (isOffline) list.push({ id: 'offline', type: 'warning', text: 'You are offline. Actions will queue and sync later.' });
     if (clockSkewMinutes !== null && Math.abs(clockSkewMinutes) >= 3) {
@@ -837,7 +934,7 @@ export default function EmployeeDashboardPage() {
       list.push({ id: u.id, type: t, text: u.label, link: '/employee/requests' });
     }
     return list;
-  }, [error, actionMessage, isOffline, clockSkewMinutes, serverTimeZone, pendingActions, failedActions, requestUpdates]);
+  }, [error, warningMessage, actionMessage, isOffline, clockSkewMinutes, serverTimeZone, pendingActions, failedActions, requestUpdates]);
 
   const headerAction = (
     <div className="action-menu-wrap" ref={notificationsRef}>
@@ -919,6 +1016,14 @@ export default function EmployeeDashboardPage() {
       userRole={me?.role}
       headerAction={headerAction}
     >
+      {toast ? (
+        <div className={`floating-toast floating-toast-${toast.tone}`} role="status" aria-live="polite">
+          <span className="floating-toast-icon" aria-hidden="true">
+            {toast.tone === 'warning' ? '⚠️' : toast.tone === 'error' ? '⛔' : '✅'}
+          </span>
+          <span>{toast.text}</span>
+        </div>
+      ) : null}
 
       {/* ── Leader gets a dedicated dashboard ── */}
       {me?.role === 'LEADER' ? (
