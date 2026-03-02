@@ -68,10 +68,14 @@ npm run dev
 1. Import this repo in Vercel.
 2. Set **Root Directory** to `apps/api`.
 3. Framework Preset: `NestJS`.
-4. Build command can stay as default `npm run build`.  
-The API build now auto-runs `prisma migrate deploy` on Vercel before compiling.
+4. Build command can stay as default `npm run build`.
+The API build tries to run `prisma migrate deploy` on Vercel, but:
+- it uses `DIRECT_DATABASE_URL` when set
+- it skips migrate when `DATABASE_URL` is a Neon pooler URL and no direct URL is provided
+- it also skips when `SKIP_PRISMA_MIGRATE_ON_BUILD=true`
 5. Configure API env vars in Vercel:
 - `DATABASE_URL`
+- `DIRECT_DATABASE_URL` (recommended for migrations; Neon non-pooler connection string)
 - `JWT_SECRET`
 - `APP_TIMEZONE`
 - `JOB_SECRET`
@@ -85,12 +89,17 @@ The API build now auto-runs `prisma migrate deploy` on Vercel before compiling.
 - optional: `MAX_LATE_MINUTES`
 - optional: `MAX_OVERTIME_MINUTES`
 - optional: `BCRYPT_ROUNDS`
+- optional: `SKIP_PRISMA_MIGRATE_ON_BUILD` (`true` to always skip migrate in Vercel builds)
 - optional: `SEED_ADMIN_USERNAME`
 - optional: `SEED_ADMIN_PASSWORD`
 6. Deploy and copy the API URL (example: `https://modern-punch-api.vercel.app`).
 
 ### 3. Seed (local terminal, optional)
-Migrations are auto-applied during Vercel API build.  
+If you skip migrations on build, run migrations manually against production direct DB URL:
+```bash
+DATABASE_URL="<PROD_DIRECT_DATABASE_URL>" npm run prisma:migrate:deploy --workspace @modern-punch/api
+```
+
 If you want initial sample data, run seed once against production `DATABASE_URL`:
 ```bash
 npm run seed --workspace @modern-punch/api

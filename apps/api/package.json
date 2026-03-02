@@ -9,7 +9,7 @@
     "prisma:generate": "node \"$(npm root)/prisma/build/index.js\" generate --schema prisma/schema.prisma",
     "prisma:migrate:deploy": "node \"$(npm root)/prisma/build/index.js\" migrate deploy --schema prisma/schema.prisma",
     "prisma:migrate:deploy:retry": "node scripts/prisma-migrate-deploy-retry.js",
-    "prisma:migrate:deploy:if-vercel": "if [ \"$VERCEL\" = \"1\" ] || [ \"$VERCEL\" = \"true\" ]; then if [ \"$SKIP_PRISMA_MIGRATE_ON_BUILD\" = \"1\" ] || [ \"$SKIP_PRISMA_MIGRATE_ON_BUILD\" = \"true\" ]; then echo \"Skipping prisma migrate deploy (SKIP_PRISMA_MIGRATE_ON_BUILD set)\"; else npm run prisma:migrate:deploy:retry; fi; else echo \"Skipping prisma migrate deploy (not Vercel build)\"; fi",
+    "prisma:migrate:deploy:if-vercel": "if [ \"$VERCEL\" = \"1\" ] || [ \"$VERCEL\" = \"true\" ]; then if [ \"$SKIP_PRISMA_MIGRATE_ON_BUILD\" = \"1\" ] || [ \"$SKIP_PRISMA_MIGRATE_ON_BUILD\" = \"true\" ]; then echo \"Skipping prisma migrate deploy (SKIP_PRISMA_MIGRATE_ON_BUILD set)\"; elif [ -n \"$DIRECT_DATABASE_URL\" ]; then echo \"Using DIRECT_DATABASE_URL for prisma migrate deploy\"; MIGRATE_DATABASE_URL=\"$DIRECT_DATABASE_URL\" npm run prisma:migrate:deploy:retry; elif echo \"$DATABASE_URL\" | grep -q -- \"-pooler\\.\"; then echo \"Skipping prisma migrate deploy (pooler DATABASE_URL without DIRECT_DATABASE_URL)\"; else npm run prisma:migrate:deploy:retry; fi; else echo \"Skipping prisma migrate deploy (not Vercel build)\"; fi",
     "prisma:migrate": "node \"$(npm root)/prisma/build/index.js\" migrate dev --schema prisma/schema.prisma",
     "prisma:studio": "node \"$(npm root)/prisma/build/index.js\" studio --schema prisma/schema.prisma",
     "seed": "node \"$(npm root)/tsx/dist/cli.mjs\" prisma/seed.ts",
