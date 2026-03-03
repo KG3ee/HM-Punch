@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -31,6 +31,13 @@ export class ShiftsController {
   @Post('admin/shift-presets')
   async createPreset(@Body() dto: CreateShiftPresetDto) {
     return this.shiftsService.createPreset(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('admin/shift-presets/:id')
+  async deletePreset(@Param('id') id: string) {
+    return this.shiftsService.deletePreset(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

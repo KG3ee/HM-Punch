@@ -62,6 +62,33 @@ export class ShiftsService {
     });
   }
 
+  async deletePreset(id: string) {
+    const existing = await this.prisma.shiftPreset.findUnique({
+      where: { id },
+      select: { id: true, name: true }
+    });
+    if (!existing) {
+      throw new NotFoundException('Shift preset not found');
+    }
+
+    const [assignmentCount, overrideCount, dutySessionCount, requestCount] = await this.prisma.$transaction([
+      this.prisma.shiftAssignment.count({ where: { shiftPresetId: id } }),
+      this.prisma.shiftOverride.count({ where: { shiftPresetId: id } }),
+      this.prisma.dutySession.count({ where: { shiftPresetId: id } }),
+      this.prisma.shiftChangeRequest.count({ where: { shiftPresetId: id } })
+    ]);
+
+    const linkedCount = assignmentCount + overrideCount + dutySessionCount + requestCount;
+    if (linkedCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete preset "${existing.name}" because it is already used (assignments: ${assignmentCount}, overrides: ${overrideCount}, dutySessions: ${dutySessionCount}, requests: ${requestCount})`
+      );
+    }
+
+    await this.prisma.shiftPreset.delete({ where: { id } });
+    return { ok: true };
+  }
+
   async listPresets(): Promise<PresetWithSegments[]> {
     return this.prisma.shiftPreset.findMany({
       where: { isActive: true },

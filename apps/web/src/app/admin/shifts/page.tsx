@@ -114,6 +114,7 @@ export default function AdminShiftsPage() {
   const [assignmentUserId, setAssignmentUserId] = useState('');
   const [assignmentPresetId, setAssignmentPresetId] = useState('');
   const [assignmentFrom, setAssignmentFrom] = useState(todayStr());
+  const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -261,6 +262,24 @@ export default function AdminShiftsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign preset');
+    }
+  }
+
+  async function deletePreset(preset: ShiftPreset): Promise<void> {
+    if (!confirm(`Delete preset "${preset.name}"? This only works if the preset is unused.`)) {
+      return;
+    }
+
+    setError('');
+    setDeletingPresetId(preset.id);
+    try {
+      await apiFetch(`/admin/shift-presets/${preset.id}`, { method: 'DELETE' });
+      flash('Preset deleted');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete preset');
+    } finally {
+      setDeletingPresetId(null);
     }
   }
 
@@ -585,6 +604,7 @@ export default function AdminShiftsPage() {
                 <th>Timezone</th>
                 <th>Default</th>
                 <th>Segments</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -606,11 +626,21 @@ export default function AdminShiftsPage() {
                         ))}
                     </div>
                   </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="button button-danger button-sm"
+                      onClick={() => void deletePreset(preset)}
+                      disabled={loading || deletingPresetId === preset.id}
+                    >
+                      {deletingPresetId === preset.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {presets.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ color: 'var(--muted)' }}>No shift presets yet</td>
+                  <td colSpan={6} style={{ color: 'var(--muted)' }}>No shift presets yet</td>
                 </tr>
               ) : null}
             </tbody>
