@@ -832,6 +832,7 @@ export default function EmployeeDashboardPage() {
       }))
       .filter((item) => item.userId !== me?.id);
   }, [me?.id, publicLiveSessions]);
+  const canViewViolationBoard = !!me && me.role !== 'ADMIN' && me.role !== 'DRIVER';
 
   const breakBlockedReason = useMemo(() => {
     if (!activeSession) return 'Punch ON first';
@@ -1491,7 +1492,7 @@ export default function EmployeeDashboardPage() {
                 </article>
               ) : null}
 
-              {me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
+              {canViewViolationBoard ? (
                 <article className="card">
                   <h3>Who&apos;s On Break (All Teams)</h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
