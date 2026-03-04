@@ -71,6 +71,33 @@ enum DriverRequestStatus {
   CANCELLED
 }
 
+enum DriverRequestCategory {
+  GENERAL
+  MEAL_PICKUP
+}
+
+enum NotificationType {
+  DRIVER_REQUEST_CREATED
+  DRIVER_REQUEST_APPROVED
+  DRIVER_REQUEST_REJECTED
+  DRIVER_REQUEST_IN_PROGRESS
+  DRIVER_REQUEST_COMPLETED
+  VIOLATION_CREATED
+  VIOLATION_TRIAGED
+  VIOLATION_FINALIZED
+  SHIFT_REQUEST_SUBMITTED
+  SHIFT_REQUEST_REVIEWED
+  REGISTRATION_REQUEST_SUBMITTED
+  REGISTRATION_REQUEST_REVIEWED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 enum ViolationSource {
   MEMBER_REPORT
   LEADER_OBSERVED
@@ -155,6 +182,8 @@ model User {
   driverRequestsCreated DriverRequest[] @relation("DriverRequestsCreated")
   driverRequestsAssigned DriverRequest[] @relation("DriverRequestsAssigned")
   driverRequestsReviewed DriverRequest[] @relation("DriverRequestsReviewed")
+  pushSubscriptions PushSubscription[]
+  notifications UserNotification[]
   violationsCreated ViolationCase[] @relation("ViolationCreatedByUser")
   violationsAccused ViolationCase[] @relation("ViolationAccusedUser")
   violationsLeaderReviewed ViolationCase[] @relation("ViolationLeaderReviewedByUser")
@@ -329,6 +358,7 @@ model ShiftChangeRequest {
 model DriverRequest {
   id            String             @id @default(cuid())
   userId        String
+  category      DriverRequestCategory @default(GENERAL)
   requestedDate DateTime
   requestedTime String
   destination   String
@@ -353,6 +383,47 @@ model DriverRequest {
   @@index([userId])
   @@index([status])
   @@index([driverId])
+}
+
+model PushSubscription {
+  id                String   @id @default(cuid())
+  userId            String
+  endpoint          String   @unique
+  p256dh            String
+  auth              String
+  deviceLabel       String?
+  userAgent         String?
+  isActive          Boolean  @default(true)
+  failureCount      Int      @default(0)
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  lastFailureReason String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model UserNotification {
+  id          String               @id @default(cuid())
+  userId      String
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  title       String
+  body        String
+  link        String?
+  payloadJson Json?
+  isRead      Boolean              @default(false)
+  readAt      DateTime?
+  createdAt   DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
 }
 
 model BreakPolicy {

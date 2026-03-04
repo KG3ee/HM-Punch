@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { apiFetch } from '@/lib/api';
 import {
+  fetchNotificationUnreadCount,
+  fetchNotifications,
+  markAllNotificationsRead,
+  UserNotification,
+} from '@/lib/notifications';
+import {
   clearSynced,
   runQueuedAction,
   subscribeQueue,
@@ -23,6 +29,8 @@ type DutySession = {
   id: string;
   shiftDate: string;
   localDate: string;
+  scheduledStartLocal?: string | null;
+  scheduledEndLocal?: string | null;
   punchedOnAt: string;
   punchedOffAt?: string | null;
   status: 'ACTIVE' | 'CLOSED' | 'CANCELLED';
@@ -89,6 +97,12 @@ type BreakStartResult = {
     code?: string;
     name?: string;
   };
+};
+
+type DriverRequestCreateResult = {
+  id: string;
+  queueState?: 'DRIVERS_AVAILABLE' | 'NO_AVAILABLE_DRIVERS';
+  availableDriversCount?: number;
 };
 
 type DashboardToast = {
@@ -254,7 +268,10 @@ export default function EmployeeDashboardPage() {
   const [clockSkewMinutes, setClockSkewMinutes] = useState<number | null>(null);
   const [serverTimeZone, setServerTimeZone] = useState('');
   const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
+  const [punchConfirmAction, setPunchConfirmAction] = useState<'on' | 'off' | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [serverNotifications, setServerNotifications] = useState<UserNotification[]>([]);
+  const [serverUnreadCount, setServerUnreadCount] = useState(0);
   const [publicLiveSessions, setPublicLiveSessions] = useState<PublicLiveSession[]>([]);
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [violationAccusedUserId, setViolationAccusedUserId] = useState('');
@@ -562,6 +579,29 @@ export default function EmployeeDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shortcutConfirmPolicy]);
 
+  useEffect(() => {
+    if (!punchConfirmAction) return;
+
+    function handlePunchConfirmKeys(e: KeyboardEvent) {
+      if (isTypingTarget(e.target)) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void confirmPunchAction();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPunchConfirmAction(null);
+      }
+    }
+
+    window.addEventListener('keydown', handlePunchConfirmKeys);
+    return () => window.removeEventListener('keydown', handlePunchConfirmKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [punchConfirmAction]);
+
   async function loadData(options?: { background?: boolean }): Promise<void> {
     const background = options?.background ?? false;
     if (!background) {
@@ -723,6 +763,35 @@ export default function EmployeeDashboardPage() {
     }
 
     setLoading(false);
+  }
+
+  function getPunchConfirmTimeLabel(): string {
+    return new Date(nowTick).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getScheduledEndLabel(): string | null {
+    if (!activeSession?.scheduledEndLocal) return null;
+    const parts = activeSession.scheduledEndLocal.split('T');
+    if (parts.length < 2) return null;
+    return parts[1]?.slice(0, 5) || null;
+  }
+
+  function getScheduledStartLabel(): string | null {
+    if (!activeSession?.scheduledStartLocal) return null;
+    const parts = activeSession.scheduledStartLocal.split('T');
+    if (parts.length < 2) return null;
+    return parts[1]?.slice(0, 5) || null;
+  }
+
+  function openPunchConfirm(action: 'on' | 'off'): void {
+    setPunchConfirmAction(action);
+  }
+
+  async function confirmPunchAction(): Promise<void> {
+    const action = punchConfirmAction;
+    if (!action) return;
+    setPunchConfirmAction(null);
+    await runAction(action === 'on' ? '/attendance/on' : '/attendance/off');
   }
 
   function retryFailedQueueActions(): void {
@@ -942,9 +1011,10 @@ export default function EmployeeDashboardPage() {
       const now = new Date();
       const hour = now.getHours();
       const mealName = hour < 11 ? 'Breakfast' : hour < 15 ? 'Lunch' : 'Dinner';
-      const result = await apiFetch<{ id: string }>('/driver-requests', {
+      const result = await apiFetch<DriverRequestCreateResult>('/driver-requests', {
         method: 'POST',
         body: JSON.stringify({
+          category: 'MEAL_PICKUP',
           requestedDate: now.toISOString(),
           requestedTime: now.toTimeString().slice(0, 5),
           destination: 'Kitchen',
@@ -956,7 +1026,11 @@ export default function EmployeeDashboardPage() {
       setMealSlideX(0);
       setMealRequestId(result.id);
       setMealDeliveryStatus('PENDING');
-      setActionMessage(`${mealName} reported ready! Driver requested.`);
+      setActionMessage(
+        result.queueState === 'NO_AVAILABLE_DRIVERS'
+          ? `${mealName} reported ready! Request queued (no available driver yet).`
+          : `${mealName} reported ready! Driver requested.`,
+      );
       setTimeout(() => { setMealSent(false); }, 3000);
     } catch (e: any) {
       setError(e.message || 'Failed to report meal');
@@ -976,10 +1050,14 @@ export default function EmployeeDashboardPage() {
     const poll = async () => {
       if (document.hidden) return;
       try {
-        const [shiftReqs, driverReqs] = await Promise.all([
+        const [shiftReqs, driverReqs, notificationFeed, unreadCount] = await Promise.all([
           apiFetch<{ id: string; status: string; updatedAt: string; requestType: string }[]>('/shifts/requests/me'),
           apiFetch<{ id: string; status: string; updatedAt: string; destination: string; purpose: string | null }[]>('/driver-requests/me'),
+          fetchNotifications(25, false),
+          fetchNotificationUnreadCount(),
         ]);
+        setServerNotifications(notificationFeed.items);
+        setServerUnreadCount(unreadCount);
         const stored = localStorage.getItem(LAST_SEEN_KEY) || lastSeen;
         const updates: RequestUpdate[] = [];
         for (const r of shiftReqs) {
@@ -1001,9 +1079,22 @@ export default function EmployeeDashboardPage() {
     return () => clearInterval(id);
   }, [me]);
 
-  const markRequestsSeen = () => {
+  const markRequestsSeen = async () => {
     localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
     setRequestUpdates([]);
+    try {
+      await markAllNotificationsRead();
+      setServerUnreadCount(0);
+      setServerNotifications((prev) =>
+        prev.map((item) => ({
+          ...item,
+          isRead: true,
+          readAt: item.readAt || new Date().toISOString(),
+        })),
+      );
+    } catch {
+      // keep local notifications functional even if read-all fails
+    }
   };
 
   const notifications = useMemo(() => {
@@ -1021,15 +1112,43 @@ export default function EmployeeDashboardPage() {
       const t = u.status === 'APPROVED' ? 'success' : u.status === 'COMPLETED' ? 'success' : 'error';
       list.push({ id: u.id, type: t, text: u.label, link: '/employee/requests' });
     }
+    for (const n of serverNotifications) {
+      const t = n.priority === 'URGENT' ? 'error' : n.priority === 'HIGH' ? 'warning' : 'success';
+      list.push({
+        id: `server-${n.id}`,
+        type: t,
+        text: `${n.title}: ${n.body}`,
+        link: n.link || undefined,
+      });
+    }
     return list;
-  }, [error, warningMessage, actionMessage, isOffline, clockSkewMinutes, serverTimeZone, pendingActions, failedActions, requestUpdates]);
+  }, [
+    error,
+    warningMessage,
+    actionMessage,
+    isOffline,
+    clockSkewMinutes,
+    serverTimeZone,
+    pendingActions,
+    failedActions,
+    requestUpdates,
+    serverNotifications,
+  ]);
+
+  const notificationBadgeCount = isOffline ? 0 : Math.max(notifications.length, serverUnreadCount);
 
   const headerAction = (
     <div className="action-menu-wrap" ref={notificationsRef}>
       <button
         type="button"
         className={`noti-bell${isOffline ? ' noti-bell-offline' : ''}`}
-        onClick={() => { const opening = !notificationsOpen; setNotificationsOpen(opening); if (opening && requestUpdates.length > 0) markRequestsSeen(); }}
+        onClick={() => {
+          const opening = !notificationsOpen;
+          setNotificationsOpen(opening);
+          if (opening) {
+            void markRequestsSeen();
+          }
+        }}
         title={isOffline ? 'No internet connection' : 'Notifications'}
       >
         {isOffline ? (
@@ -1048,8 +1167,8 @@ export default function EmployeeDashboardPage() {
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
         )}
-        {!isOffline && notifications.length > 0 && (
-          <span className="noti-badge">{notifications.length}</span>
+        {!isOffline && notificationBadgeCount > 0 && (
+          <span className="noti-badge">{notificationBadgeCount}</span>
         )}
       </button>
       {notificationsOpen && (
@@ -1135,6 +1254,7 @@ export default function EmployeeDashboardPage() {
       subtitle={me ? `${me.displayName}${me.team?.name ? ` · ${me.team.name}` : ''}` : '…'}
       userRole={me?.role}
       headerAction={headerAction}
+      showNotificationBell={false}
     >
       {toast ? (
         <div className={`floating-toast floating-toast-${toast.tone}`} role="status" aria-live="polite">
@@ -1226,7 +1346,7 @@ export default function EmployeeDashboardPage() {
                     type="button"
                     className="punch-btn punch-on"
                     disabled={(loading && !isOffline) || !!activeSession}
-                    onClick={() => void runAction('/attendance/on')}
+                    onClick={() => openPunchConfirm('on')}
                   >
                     <span className="punch-icon"><PunchIcon mode="ON" /></span>
                     <span className="punch-label">Punch ON</span>
@@ -1235,7 +1355,7 @@ export default function EmployeeDashboardPage() {
                     type="button"
                     className="punch-btn punch-off"
                     disabled={(loading && !isOffline) || !activeSession}
-                    onClick={() => void runAction('/attendance/off')}
+                    onClick={() => openPunchConfirm('off')}
                   >
                     <span className="punch-icon"><PunchIcon mode="OFF" /></span>
                     <span className="punch-label">Punch OFF</span>
@@ -1509,6 +1629,57 @@ export default function EmployeeDashboardPage() {
               ) : null}
             </div>
           </section>
+
+          {punchConfirmAction ? (
+            <div
+              className="modal-overlay"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                  setPunchConfirmAction(null);
+                }
+              }}
+            >
+              <div className="modal shortcut-confirm-modal">
+                <h3>{punchConfirmAction === 'on' ? 'Confirm Punch ON' : 'Confirm Punch OFF'}</h3>
+                <p style={{ marginBottom: '0.35rem' }}>
+                  Are you sure you want to {punchConfirmAction === 'on' ? 'punch ON' : 'punch OFF'}?
+                </p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                  Actual recorded time will be <strong>{getPunchConfirmTimeLabel()}</strong>
+                  {serverTimeZone ? ` (${serverTimeZone})` : ''}.
+                </p>
+                {punchConfirmAction === 'off' && getScheduledEndLabel() ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                    Scheduled shift end: <strong>{getScheduledEndLabel()}</strong>.
+                  </p>
+                ) : null}
+                {punchConfirmAction === 'on' && getScheduledStartLabel() ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                    Scheduled shift start: <strong>{getScheduledStartLabel()}</strong>.
+                  </p>
+                ) : null}
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  Press <kbd>Enter</kbd> to confirm or <kbd>Esc</kbd> to cancel.
+                </p>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    onClick={() => setPunchConfirmAction(null)}
+                  >
+                    Cancel (Esc)
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    onClick={() => void confirmPunchAction()}
+                  >
+                    Confirm (Enter)
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {shortcutConfirmPolicy ? (
             <div

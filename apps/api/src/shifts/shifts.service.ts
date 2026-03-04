@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import {
   AssignmentTargetType,
+  NotificationPriority,
+  NotificationType,
   Prisma,
+  Role,
   ShiftChangeRequestStatus,
   ShiftAssignment,
   ShiftPreset,
@@ -23,6 +26,7 @@ import {
   formatDateInZone,
   resolveActiveShiftSegment
 } from '@modern-punch/core';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftAssignmentDto } from './dto/create-shift-assignment.dto';
 import { CreateShiftOverrideDto } from './dto/create-shift-override.dto';
@@ -39,7 +43,10 @@ type AssignmentWithPreset = ShiftAssignment & {
 
 @Injectable()
 export class ShiftsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   async createPreset(dto: CreateShiftPresetDto): Promise<PresetWithSegments> {
     const normalizedSegments = this.normalizeSegments(dto.segments);
@@ -507,7 +514,7 @@ export class ShiftsService {
       throw new BadRequestException('requestedDate is invalid');
     }
 
-    return this.prisma.shiftChangeRequest.create({
+    const created = await this.prisma.shiftChangeRequest.create({
       data: {
         userId,
         shiftPresetId,
@@ -517,6 +524,45 @@ export class ShiftsService {
         status: ShiftChangeRequestStatus.PENDING
       }
     });
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        teamId: true,
+        displayName: true,
+      },
+    });
+    const [adminIds, leaderIds] = await Promise.all([
+      this.findActiveUserIdsByRole(Role.ADMIN),
+      this.findActiveLeadersByTeamId(requester?.teamId || null),
+    ]);
+    const payload = {
+      shiftRequestId: created.id,
+      requestType: created.requestType,
+      status: created.status,
+      requestedDate: created.requestedDate.toISOString(),
+    };
+
+    void Promise.all([
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.SHIFT_REQUEST_SUBMITTED,
+        priority: NotificationPriority.NORMAL,
+        title: 'New shift request submitted',
+        body: `${requester?.displayName || 'A user'} submitted a shift request.`,
+        link: '/admin/requests',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers(leaderIds, {
+        type: NotificationType.SHIFT_REQUEST_SUBMITTED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Team shift request submitted',
+        body: `${requester?.displayName || 'A team member'} submitted a shift request.`,
+        link: '/employee/dashboard',
+        payloadJson: payload,
+      }),
+    ]).catch(() => undefined);
+
+    return created;
   }
 
   async listRequests(isAdmin: boolean, userId?: string) {
@@ -549,7 +595,7 @@ export class ShiftsService {
       throw new BadRequestException('Only pending requests can be approved');
     }
 
-    return this.prisma.shiftChangeRequest.update({
+    const updated = await this.prisma.shiftChangeRequest.update({
       where: { id: requestId },
       data: {
         status: ShiftChangeRequestStatus.APPROVED,
@@ -561,6 +607,35 @@ export class ShiftsService {
         reviewedBy: { select: { id: true, displayName: true, username: true } },
       },
     });
+
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    const payload = {
+      shiftRequestId: updated.id,
+      requestType: updated.requestType,
+      status: updated.status,
+      requestedDate: updated.requestedDate.toISOString(),
+    };
+
+    void Promise.all([
+      this.notificationsService.notifyUsers([updated.user.id], {
+        type: NotificationType.SHIFT_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Shift request reviewed',
+        body: `Your shift request was approved.`,
+        link: '/employee/requests',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.SHIFT_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Shift request approved',
+        body: `${updated.user.displayName}'s shift request was approved.`,
+        link: '/admin/requests',
+        payloadJson: payload,
+      }),
+    ]).catch(() => undefined);
+
+    return updated;
   }
 
   async rejectRequest(requestId: string, reviewerId: string) {
@@ -575,13 +650,72 @@ export class ShiftsService {
       throw new BadRequestException('Only pending requests can be rejected');
     }
 
-    return this.prisma.shiftChangeRequest.update({
+    const updated = await this.prisma.shiftChangeRequest.update({
       where: { id: requestId },
       data: {
         status: ShiftChangeRequestStatus.REJECTED,
         reviewedById: reviewerId,
         reviewedAt: new Date()
-      }
+      },
+      include: {
+        user: { select: { id: true, displayName: true, username: true } },
+        reviewedBy: { select: { id: true, displayName: true, username: true } },
+      },
     });
+
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    const payload = {
+      shiftRequestId: updated.id,
+      requestType: updated.requestType,
+      status: updated.status,
+      requestedDate: updated.requestedDate.toISOString(),
+    };
+
+    void Promise.all([
+      this.notificationsService.notifyUsers([updated.user.id], {
+        type: NotificationType.SHIFT_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Shift request reviewed',
+        body: `Your shift request was rejected.`,
+        link: '/employee/requests',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.SHIFT_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Shift request rejected',
+        body: `${updated.user.displayName}'s shift request was rejected.`,
+        link: '/admin/requests',
+        payloadJson: payload,
+      }),
+    ]).catch(() => undefined);
+
+    return updated;
+  }
+
+  private async findActiveUserIdsByRole(role: Role): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        role,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    return rows.map((row) => row.id);
+  }
+
+  private async findActiveLeadersByTeamId(teamId: string | null): Promise<string[]> {
+    if (!teamId) return [];
+    const rows = await this.prisma.user.findMany({
+      where: {
+        role: Role.LEADER,
+        teamId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    return rows.map((row) => row.id);
   }
 }

@@ -1,6 +1,11 @@
-import { IsBoolean, IsDateString, IsOptional, IsString } from 'class-validator';
+import { DriverRequestCategory } from '@prisma/client';
+import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateDriverRequestDto {
+  @IsOptional()
+  @IsEnum(DriverRequestCategory)
+  category?: DriverRequestCategory;
+
   @IsDateString()
   requestedDate!: string;
 

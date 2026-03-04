@@ -1,136 +1,153 @@
 # Modern Punch (Prototype)
 
-Monorepo prototype for split-shift duty tracking, breaks, and monthly reporting.
+Monorepo prototype for attendance, split-shift scheduling, breaks, driver requests, violations, and notification workflows.
 
 ## Stack
-- `apps/api`: NestJS + Prisma
-- `apps/web`: Next.js
-- `packages/core`: shared pure business logic (shift resolution + time helpers)
+- `apps/api`: NestJS + Prisma + PostgreSQL
+- `apps/web`: Next.js (App Router)
+- `packages/core`: shared shift/time logic
 
-## Features Implemented
-- Username/password login (`POST /auth/login`)
-- Admin-created users and teams
-- Multi-segment shift presets + assignments + overrides
-- Duty punch ON/OFF with late calculation per segment
-- Break start/end/cancel with daily limit enforcement
-- Admin live board endpoint
-- Monthly snapshot reports
-- Internal cron/job endpoints secured by `x-job-secret`
+## Current Workflow Coverage
+- Username/password auth with register-request flow and admin approval.
+- Role-based UI/API for `ADMIN`, `LEADER`, `MEMBER`, `DRIVER`, `CHEF`, `MAID`.
+- Shift management:
+  - multi-segment presets
+  - team/user assignments
+  - date overrides
+  - shift change requests (`HALF_DAY_MORNING`, `HALF_DAY_EVENING`, `FULL_DAY_OFF`, `CUSTOM`)
+- Attendance:
+  - punch ON/OFF with server-side time normalization
+  - late minute calculation per resolved segment
+  - overtime based on late-end time (early punch-on does not add overtime)
+- Breaks:
+  - start/end/cancel
+  - limit scope is per active duty session (not reset at midnight)
+  - over-limit is soft: break still starts and is flagged
+- Offline-safe employee actions:
+  - punch ON/OFF and break actions queue locally and sync later
+- Violations:
+  - member report
+  - leader triage/observed
+  - admin finalize
+  - points ledger and CSV export
+- Driver requests:
+  - general + meal pickup categories
+  - request creation is allowed even when drivers are off duty (queued state returned)
+- Notifications:
+  - in-app notification feed for all authenticated roles
+  - optional Web Push (VAPID-based) when enabled
+- Internal jobs with `x-job-secret`.
 
-## Quick Start
+## Quick Start (Local)
 1. Install dependencies:
 ```bash
 npm install
 ```
-
-2. Configure environment:
+2. Copy env files:
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
-
 3. Generate Prisma client:
 ```bash
 npm run prisma:generate
 ```
-
-4. Run migration (requires valid `DATABASE_URL`):
+4. Run migrations:
 ```bash
 npm run prisma:migrate
 ```
-
-5. Seed initial data:
+5. Seed baseline data:
 ```bash
 npm run seed --workspace @modern-punch/api
 ```
-
-6. Start both API + web:
+6. Start API + web:
 ```bash
 npm run dev
 ```
 
-- API: `http://localhost:4000/health`
+Local URLs:
+- API health: `http://localhost:4000/health` (or `http://localhost:4001/health` if `PORT` is unset)
 - Web: `http://localhost:3000`
 
-## Important Notes
-- Seed creates an admin account from API env vars:
-- `SEED_ADMIN_USERNAME` (default `admin`)
-- `SEED_ADMIN_PASSWORD` (default `admin123`)
-- Admin-created users can be forced to change password on first login (`mustChangePassword`).
-- Free-tier target deployment: Vercel (web + api), Neon (db).
+## Seed Notes
+- `SEED_ADMIN_USERNAME` defaults to `admin`.
+- `SEED_ADMIN_PASSWORD` is required and must be at least 12 characters.
+- Seed creates baseline teams, break policies, split-shift presets, and team assignments.
 
-## Deploy (Prototype Final)
-### 1. Database (Neon)
-1. Create a Neon Postgres database.
-2. Keep the connection string ready for both local migration and Vercel API env.
+## Deployment (Vercel + Neon)
+This repo is set up for two Vercel projects (`apps/api` and `apps/web`) plus Neon database.
 
-### 2. API (Vercel Project: `modern-punch-api`)
-1. Import this repo in Vercel.
-2. Set **Root Directory** to `apps/api`.
-3. Framework Preset: `NestJS`.
-4. Build command can stay as default `npm run build`.
-The API build tries to run `prisma migrate deploy` on Vercel, but:
-- it uses `DIRECT_DATABASE_URL` when set
-- it skips migrate when `DATABASE_URL` is a Neon pooler URL and no direct URL is provided
-- it also skips when `SKIP_PRISMA_MIGRATE_ON_BUILD=true`
-5. Configure API env vars in Vercel:
-- `DATABASE_URL`
-- `DIRECT_DATABASE_URL` (recommended for migrations; Neon non-pooler connection string)
-- `JWT_SECRET`
-- `APP_TIMEZONE`
-- `JOB_SECRET`
-- `CORS_ORIGIN` (example: `https://your-web.vercel.app,https://*.vercel.app`)
-- optional: `SYSTEM_JOB_USER_ID`
-- optional: `BREAK_GRACE_MINUTES`
-- optional: `MAX_ACTIVE_DUTY_HOURS`
-- optional: `MAX_CLIENT_PAST_HOURS`
-- optional: `MAX_CLIENT_FUTURE_MINUTES`
-- optional: `HIGH_TRUST_SKEW_MINUTES`
-- optional: `MAX_LATE_MINUTES`
-- optional: `MAX_OVERTIME_MINUTES`
-- optional: `BCRYPT_ROUNDS`
-- optional: `SKIP_PRISMA_MIGRATE_ON_BUILD` (`true` to always skip migrate in Vercel builds)
-- optional: `SEED_ADMIN_USERNAME`
-- optional: `SEED_ADMIN_PASSWORD`
-6. Deploy and copy the API URL (example: `https://modern-punch-api.vercel.app`).
+### 1) Neon Database
+- Create a Neon Postgres database.
+- Keep both connection strings:
+  - pooler URL for runtime
+  - direct URL for migrations
 
-### 3. Seed (local terminal, optional)
-If you skip migrations on build, run migrations manually against production direct DB URL:
+### 2) API Project (`apps/api`)
+1. Import repo in Vercel, root directory `apps/api`.
+2. Build command can stay `npm run build`.
+3. Migration behavior during Vercel build:
+   - uses `DIRECT_DATABASE_URL` when provided
+   - skips migrate when only pooler `DATABASE_URL` is set
+   - skips when `SKIP_PRISMA_MIGRATE_ON_BUILD=true`
+4. Required API env vars:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `CORS_ORIGIN`
+   - `APP_TIMEZONE`
+   - `JOB_SECRET`
+5. Recommended API env vars:
+   - `DIRECT_DATABASE_URL`
+   - `AUTH_COOKIE_SAMESITE`
+   - `AUTH_COOKIE_SECURE`
+   - `AUTH_SESSION_DAYS`
+   - `BODY_LIMIT`
+   - `SEED_ADMIN_USERNAME`
+   - `SEED_ADMIN_PASSWORD`
+6. Optional API env vars:
+   - `SYSTEM_JOB_USER_ID`
+   - `BREAK_GRACE_MINUTES`
+   - `MAX_ACTIVE_DUTY_HOURS`
+   - `MAX_CLIENT_PAST_HOURS`
+   - `MAX_CLIENT_FUTURE_MINUTES`
+   - `HIGH_TRUST_SKEW_MINUTES`
+   - `MAX_LATE_MINUTES`
+   - `MAX_OVERTIME_MINUTES`
+   - `BCRYPT_ROUNDS`
+   - `SKIP_PRISMA_MIGRATE_ON_BUILD`
+7. Optional push-notification API env vars (required only for Web Push delivery):
+   - `WEB_PUSH_VAPID_PUBLIC_KEY`
+   - `WEB_PUSH_VAPID_PRIVATE_KEY`
+   - `WEB_PUSH_VAPID_SUBJECT` (example: `mailto:admin@yourdomain.com`)
+
+### 3) Web Project (`apps/web`)
+1. Import same repo in Vercel, root directory `apps/web`.
+2. Required web env vars:
+   - `NEXT_PUBLIC_API_URL`
+   - `API_INTERNAL_URL`
+   - `JOB_SECRET`
+3. Optional web env vars:
+   - `CRON_SECRET`
+   - `NEXT_PUBLIC_PUSH_ENABLED` (`true`/`1` to enable push subscription flow)
+   - `NEXT_PUBLIC_PUSH_ROLES` (comma-separated roles; default allows all operational roles)
+   - `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` (required when push is enabled)
+
+### 4) Production Migration/Seed (Manual)
+Run from `apps/api` against production direct DB URL:
 ```bash
-DATABASE_URL="<PROD_DIRECT_DATABASE_URL>" npm run prisma:migrate:deploy --workspace @modern-punch/api
+DATABASE_URL="<PROD_DIRECT_DATABASE_URL>" npm run prisma:migrate:deploy
+DATABASE_URL="<PROD_DATABASE_URL>" SEED_ADMIN_USERNAME="admin" SEED_ADMIN_PASSWORD="<strong-password>" npm run seed
 ```
 
-If you want initial sample data, run seed once against production `DATABASE_URL`:
-```bash
-npm run seed --workspace @modern-punch/api
-```
-
-### 4. Web (Vercel Project: `modern-punch-web`)
-1. Import the same repo in Vercel with root directory `apps/web`.
-2. Configure env vars:
-- `NEXT_PUBLIC_API_URL` (your Vercel API URL)
-- `API_INTERNAL_URL` (same Vercel API URL)
-- `JOB_SECRET` (must match API `JOB_SECRET`)
-- optional: `CRON_SECRET`
-3. `apps/web/vercel.json` schedules daily cron at `00:10 UTC` for `/api/cron/daily`.
-
-### 5. Final Check
-1. Open web URL and login with seeded admin account.
-2. Verify API health from browser:
-```text
-https://your-api.vercel.app/health
-```
-
-## Job Endpoints
-All require `x-job-secret` header with `JOB_SECRET`.
+## Internal Job Endpoints
+All endpoints require header `x-job-secret: <JOB_SECRET>`.
 
 - `POST /internal/jobs/run-daily`
 - `POST /internal/jobs/auto-close-breaks`
 - `POST /internal/jobs/auto-close-stale-duty`
-- `POST /internal/jobs/monthly-snapshot` (optional body: `year`, `month`, `teamId`, `force`)
+- `POST /internal/jobs/monthly-snapshot`
 
 Example:
 ```bash
-curl -X POST "$API_URL/internal/jobs/run-daily" \
-  -H "x-job-secret: $JOB_SECRET"
+curl -X POST "$API_URL/internal/jobs/run-daily" -H "x-job-secret: $JOB_SECRET"
 ```

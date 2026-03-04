@@ -1,111 +1,120 @@
 # User Manual: Modern Punch
 
-## Introduction
-Modern Punch is a web-based attendance and shift management system designed for teams. It allows employees to clock in/out, take breaks, and view their schedules, while administrators can manage teams, approve user registrations, and monitor attendance in real-time.
+This guide is split into Employee and Admin sections and matches the current app workflow.
 
----
+## Access
+- Open the web URL on desktop browser.
+- Sign in with username and password.
+- New users can submit account request from `/register`.
 
-## Getting Started
+Note:
+- Member login/register screens are blocked on mobile with an office-desktop warning.
 
-### Accessing the System
-- **Web Interface**: Open the application URL in your browser.
-- **Login**: Use your username and password.
-- **Self-Registration**: If you don't have an account, click "Request Account" on the login page.
+## Employee Guide
 
----
+### 1) Register account request (if you do not have account)
+1. Open `/register`.
+2. Fill in first name, last name (optional), display name, username, password, and staff code.
+3. Submit request.
+4. Wait for admin approval.
 
-## 1. Employee Guide
+### 2) Punch ON / OFF
+1. Click `Punch ON` to start duty.
+2. A confirmation modal appears:
+   - shows actual recorded time
+   - `Enter` confirms
+   - `Esc` cancels
+3. Click `Punch OFF` at end of shift (same confirmation behavior).
 
-### Registration (First Time Users)
-1. Go to the login page and click **"Request Account"**.
-2. Fill in your details:
-   - **First Name / Last Name**: Your legal name.
-   - **Display Name**: The name shown to your team.
-   - **Desired Username**: Unique username for login.
-   - **Password**: At least 6 characters.
-   - **Staff Code**: Your unique employee ID (provided by your manager).
-3. Submit the request.
-4. An administrator will review your request. Once approved, you can log in.
+### 3) Breaks
+1. Break buttons are enabled only when:
+   - you are on active duty
+   - no other break is active
+2. Break shortcuts:
+   - `B` = `BWC`
+   - `W` = `WC`
+   - `C` = `CY`
+   - `1` = `CF+1`
+   - `2` = `CF+2`
+   - `3` = `CF+3`
+3. Shortcut opens confirm modal (`Enter` confirm, `Esc` cancel).
+4. You can end or cancel active break from dashboard.
+5. Break limits are per duty session (not per calendar day). Over-limit is soft: break still starts and a warning is shown.
 
-### Dashboard (Punching In/Out)
-Once logged in, you will see the **Employee Dashboard**.
+### 4) Offline behavior
+- Punch and break actions are queued if internet is down.
+- Queued actions sync automatically when internet returns.
+- Dashboard shows queue/failure indicators and retry options.
 
-#### Clocking In
-- Click the large **"PUNCH IN"** button to start your duty session.
-- The system records your start time.
+### 5) Requests
+- Use `Requests` page for shift/day-off requests.
+- Supported request types:
+  - Half Day Morning
+  - Half Day Evening
+  - Full Day Off
+  - Custom
 
-#### Taking Breaks
-- While on duty, you can take breaks by clicking the corresponding break button (e.g., **"Lunch"**, **"Smoke"**, **"Rest"**).
-- The break timer will start.
-- Click **"End Break"** to return to duty.
+### 6) Violation reporting (member)
+- In dashboard, use `Report Violation`.
+- Select accused user, reason, and optional note.
+- Leaders do not see reporter identity.
 
-#### Clocking Out
-- At the end of your shift, click **"PUNCH OUT"**.
-- This closes your session for the day.
+### 7) Driver/Chef workflow
+- Chef can submit meal pickup driver request.
+- Request is allowed even if no drivers are currently available; it enters queue/pending flow.
+- Driver handles assignments from driver dashboard.
 
-### Viewing Schedule
-- Your assigned shift (e.g., "09:00 - 18:00") is displayed on the dashboard.
-- If no shift is assigned, you may see "No Shift".
+### 8) Notifications
+- Bell icon shows in-app notifications.
+- If push is enabled and browser permission is granted, push notifications are also sent.
 
----
+## Admin Guide
 
-## 2. Admin Guide
+### 1) Main pages
+- `Live`: active duty/break view.
+- `History`: attendance history and reports.
+- `Users`: user and team management + registration approvals.
+- `Shifts`: shift preset/assignment management.
+- `Requests`: shift requests, driver requests, violation review/finalization.
 
-Administrators have access to the **Admin Dashboard** to manage the organization.
+### 2) Users page
+- Create user directly (role/team/password options).
+- Edit user role, team, active status, and password.
+- Delete user (hard delete with related cleanup).
+- Review registration requests and approve/reject.
 
-### Navigation
-- **Users**: Manage employees, teams, and registrations.
-- **Live Board**: Real-time view of who is working.
-- **Shift Assignments**: Assign shifts to teams or individuals.
+### 3) Shifts page
+- Create multi-segment shift presets.
+- Assign preset to team or specific user with effective date.
+- Delete preset only if it is not in active/future use.
 
-### Registration Management
-New user requests appear in the **Registration Approval Queue** at the top of the Admin Users page.
+### 4) Requests page
+- Shift tab:
+  - approve/reject shift requests
+- Driver tab:
+  - review driver requests
+  - assign driver and approve/reject
+  - view driver availability
+- Violation tab:
+  - review member/leader/admin cases
+  - finalize as confirmed/rejected
+  - apply point entries (reward/deduction)
+  - export points CSV
 
-#### Approving Users
-1. **Verification Score**: The system automatically checks the user's **Staff Code** against the **Registration Roster**.
-   - **Green (High Score)**: The Staff Code matches a known employee in the roster. Safe to approve.
-   - **Yellow/Red**: No match found. Verify the user manually before approving.
-2. Click **Approve** to create their account.
-3. Click **Reject** to deny the request.
+### 5) Notifications
+- Admin receives unified bell notifications for:
+  - registration requests
+  - driver requests updates
+  - shift requests updates
+  - violations create/triage/finalize
 
-#### Managing the Roster
-To ensure secure registration, add valid employee details to the **Registration Roster**.
-- Go to the **Users** page -> **Registration Roster** section.
-- Add a new entry with **Staff Code**, **Name**, and **Default Team**.
-- This acts as a "whitelist" for incoming registration requests.
+## Quick FAQ
 
-### Managing Teams
-1. Go to the **Users** page.
-2. Click **"+ Team"** to create a new team.
-3. Define the **Team Name** and default **Shift Times** (e.g., 09:00 - 17:00).
-4. Users assigned to this team will inherit these shift settings.
+Q: I forgot my password.  
+A: Admin can reset from Users page.
 
-### Managing Users
-- **Search**: Use the search bar to find users by name, username, or team.
-- **Edit**: Click the "⋮" menu on a user row to **Edit** their role or team.
-- **Reset Password**: You can reset a user's password if they forget it.
-- **Deactivate**: Remove a user's access without deleting their data.
+Q: I punched wrongly.  
+A: Ask admin/leader to review and correct via admin workflows.
 
-### Live Board
-- View a real-time list of all employees currently **On Duty**.
-- See their current status (Working, On Break) and how long they have been active.
-
-### Shift Management
-- Navigate to **"Shifts"** (if available in the specific deployment) or manage via **Teams**.
-- You can create **Shift Presets** (e.g., "Morning Shift", "Night Shift") and assign them to specific Teams for specific date ranges.
-
----
-
-## Frequently Asked Questions
-
-**Q: I forgot my password.**
-A: Contact an administrator. They can reset your password from the Admin Dashboard.
-
-**Q: My verification score is low.**
-A: Ensure you entered the correct **Staff Code** during registration. If the error persists, ask an administrator to check the Registration Roster.
-
-**Q: Can I change my team?**
-A: Only administrators can change your team assignment.
-
-**Q: How do I fix a mistake in my punch (e.g., forgot to punch out)?**
-A: Contact your manager/admin to manually correct your attendance record.
+Q: Can users change their own display info?  
+A: Yes, from profile page. Team/role changes are admin-only.

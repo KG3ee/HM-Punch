@@ -5,11 +5,14 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import {
+  NotificationPriority,
+  NotificationType,
   Prisma,
   RegistrationRequestStatus,
   Role
 } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApproveRegistrationRequestDto } from './dto/approve-registration-request.dto';
 import { CreateRegistrationRequestDto } from './dto/create-registration-request.dto';
@@ -48,7 +51,10 @@ const REQUEST_PUBLIC_INCLUDE = {
 
 @Injectable()
 export class RegistrationsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   async createRequest(dto: CreateRegistrationRequestDto) {
     const desiredUsername = this.normalizeUsername(dto.username);
@@ -101,6 +107,20 @@ export class RegistrationsService {
       },
       include: REQUEST_PUBLIC_INCLUDE
     });
+
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    void this.notificationsService.notifyUsers(adminIds, {
+      type: NotificationType.REGISTRATION_REQUEST_SUBMITTED,
+      priority: NotificationPriority.HIGH,
+      title: 'New registration request',
+      body: `${created.displayName} submitted a registration request.`,
+      link: '/admin/users?section=registrations',
+      payloadJson: {
+        registrationRequestId: created.id,
+        desiredUsername: created.desiredUsername,
+        status: created.status,
+      },
+    }).catch(() => undefined);
 
     return this.toPublicRequest(created);
   }
@@ -163,7 +183,7 @@ export class RegistrationsService {
     const role = dto.role || Role.MEMBER;
     const mustChangePassword = dto.mustChangePassword ?? false;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
           username: request.desiredUsername,
@@ -208,6 +228,33 @@ export class RegistrationsService {
         user: createdUser
       };
     });
+
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    const payload = {
+      registrationRequestId: result.request.id,
+      status: result.request.status,
+      approvedUserId: result.user.id,
+    };
+    void Promise.all([
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.REGISTRATION_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Registration request approved',
+        body: `${result.request.displayName} was approved.`,
+        link: '/admin/users?section=registrations',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers([result.user.id], {
+        type: NotificationType.REGISTRATION_REQUEST_REVIEWED,
+        priority: NotificationPriority.NORMAL,
+        title: 'Registration approved',
+        body: 'Your account is approved. You can now log in.',
+        link: '/login',
+        payloadJson: payload,
+      }),
+    ]).catch(() => undefined);
+
+    return result;
   }
 
   async rejectRequest(
@@ -240,6 +287,19 @@ export class RegistrationsService {
       },
       include: REQUEST_PUBLIC_INCLUDE
     });
+
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    void this.notificationsService.notifyUsers(adminIds, {
+      type: NotificationType.REGISTRATION_REQUEST_REVIEWED,
+      priority: NotificationPriority.NORMAL,
+      title: 'Registration request rejected',
+      body: `${updated.displayName}'s registration request was rejected.`,
+      link: '/admin/users?section=registrations',
+      payloadJson: {
+        registrationRequestId: updated.id,
+        status: updated.status,
+      },
+    }).catch(() => undefined);
 
     return this.toPublicRequest(updated);
   }
@@ -275,5 +335,13 @@ export class RegistrationsService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...safe } = request;
     return safe;
+  }
+
+  private async findActiveUserIdsByRole(role: Role): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: { role, isActive: true },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 }

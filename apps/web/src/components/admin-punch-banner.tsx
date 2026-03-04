@@ -68,6 +68,14 @@ export function AdminPunchWidget() {
     }
   }
 
+  function confirmPunch(path: '/attendance/on' | '/attendance/off'): boolean {
+    const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const action = path === '/attendance/on' ? 'Punch ON' : 'Punch OFF';
+    return window.confirm(
+      `${action} confirmation\\n\\nActual recorded time will be ${timeLabel}.\\n\\nDo you want to continue?`,
+    );
+  }
+
   if (!mounted) return null;
 
   return (
@@ -90,7 +98,10 @@ export function AdminPunchWidget() {
             type="button"
             className="button button-danger button-sm"
             disabled={loading}
-            onClick={() => void punch('/attendance/off')}
+            onClick={() => {
+              if (!confirmPunch('/attendance/off')) return;
+              void punch('/attendance/off');
+            }}
           >
             Punch OFF
           </button>
@@ -100,7 +111,10 @@ export function AdminPunchWidget() {
           type="button"
           className="button button-ok button-sm"
           disabled={loading}
-          onClick={() => void punch('/attendance/on')}
+          onClick={() => {
+            if (!confirmPunch('/attendance/on')) return;
+            void punch('/attendance/on');
+          }}
         >
           Punch ON
         </button>

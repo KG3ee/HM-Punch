@@ -433,13 +433,11 @@ export class AttendanceService {
     if (scheduledStartLocal && scheduledEndLocal) {
       const punchOnStamp = this.localMinuteStampFromDate(punchedOnAt, timeZone);
       const punchOffStamp = this.localMinuteStampFromDate(punchedOffAt, timeZone);
-      const scheduledStartStamp = this.localMinuteStamp(scheduledStartLocal);
       const scheduledEndStamp = this.localMinuteStamp(scheduledEndLocal);
 
       const effectivePunchOffStamp = Math.max(punchOffStamp, punchOnStamp);
-      const earlyOvertime = Math.max(0, scheduledStartStamp - punchOnStamp);
       const lateOvertime = Math.max(0, effectivePunchOffStamp - scheduledEndStamp);
-      return Math.min(this.maxOvertimeMinutes(), earlyOvertime + lateOvertime);
+      return Math.min(this.maxOvertimeMinutes(), lateOvertime);
     }
 
     if (!team?.shiftStartTime || !team.shiftEndTime) {
@@ -458,13 +456,11 @@ export class AttendanceService {
       dayDelta * 1440 + punchOffMinutes,
     );
 
-    const scheduledStartAbsolute = shiftStartMin;
     const scheduledEndAbsolute =
       shiftEndMin > shiftStartMin ? shiftEndMin : shiftEndMin + 1440;
 
-    const earlyOvertime = Math.max(0, scheduledStartAbsolute - punchOnAbsolute);
     const lateOvertime = Math.max(0, punchOffAbsolute - scheduledEndAbsolute);
-    const rawOvertime = earlyOvertime + lateOvertime;
+    const rawOvertime = lateOvertime;
 
     return Math.min(this.maxOvertimeMinutes(), rawOvertime);
   }

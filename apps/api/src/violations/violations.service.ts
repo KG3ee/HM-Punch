@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import {
   DutySessionStatus,
+  NotificationPriority,
+  NotificationType,
   Prisma,
   Role,
   ViolationLedgerReason,
@@ -15,6 +17,7 @@ import {
   ViolationStatus,
 } from '@prisma/client';
 import { formatDateInZone } from '../core';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateObservedViolationDto } from './dto/create-observed-violation.dto';
 import { CreateViolationReportDto } from './dto/create-violation-report.dto';
@@ -31,12 +34,15 @@ import {
 
 @Injectable()
 export class ViolationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createMemberReport(reporterUserId: string, dto: CreateViolationReportDto) {
     const reporter = await this.prisma.user.findUnique({
       where: { id: reporterUserId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, displayName: true },
     });
     if (!reporter) throw new NotFoundException('Reporter user not found');
     if (reporter.role === Role.ADMIN) {
@@ -87,6 +93,43 @@ export class ViolationsService {
       occurredAt: occurredAt.toISOString(),
       localDate: created.localDate,
     });
+
+    const [adminIds, leaderIds] = await Promise.all([
+      this.findActiveUserIdsByRole(Role.ADMIN),
+      this.findActiveLeadersByTeamId(created.accusedUser.team?.id || null),
+    ]);
+
+    void Promise.all([
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'New violation report',
+        body: `${reporter.displayName} reported ${created.accusedUser.displayName}.`,
+        link: '/admin/requests?tab=violation',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          status: created.status,
+          reason: created.reason,
+          accusedUserId: created.accusedUser.id,
+          reporterUserId,
+        },
+      }),
+      this.notificationsService.notifyUsers(leaderIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'Team violation reported',
+        body: `${created.accusedUser.displayName} was reported. Please review in the dashboard.`,
+        link: '/employee/dashboard',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          status: created.status,
+          reason: created.reason,
+          accusedUserId: created.accusedUser.id,
+        },
+      }),
+    ]).catch(() => undefined);
 
     return created;
   }
@@ -222,6 +265,20 @@ export class ViolationsService {
       note: updated.leaderReviewNote,
     });
 
+    const adminIds = await this.findActiveUserIdsByRole(Role.ADMIN);
+    void this.notificationsService.notifyUsers(adminIds, {
+      type: NotificationType.VIOLATION_TRIAGED,
+      priority: NotificationPriority.NORMAL,
+      title: 'Violation triaged by leader',
+      body: `Case ${caseId.slice(0, 8)} was triaged as ${updated.status}.`,
+      link: '/admin/requests?tab=violation',
+      payloadJson: {
+        violationCaseId: caseId,
+        status: updated.status,
+        leaderReviewedById: leaderUserId,
+      },
+    }).catch(() => undefined);
+
     return updated;
   }
 
@@ -258,6 +315,40 @@ export class ViolationsService {
       occurredAt: created.occurredAt.toISOString(),
       localDate: created.localDate,
     });
+
+    const [adminIds, leaderIds] = await Promise.all([
+      this.findActiveUserIdsByRole(Role.ADMIN),
+      this.findActiveLeadersByTeamId(accused.teamId || null),
+    ]);
+
+    void Promise.all([
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'New observed violation',
+        body: `Leader submitted an observed violation case.`,
+        link: '/admin/requests?tab=violation',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          reason: created.reason,
+          accusedUserId: created.accusedUserId,
+        },
+      }),
+      this.notificationsService.notifyUsers(leaderIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'Team violation case created',
+        body: 'An observed violation case was submitted for your team.',
+        link: '/employee/dashboard',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          reason: created.reason,
+          accusedUserId: created.accusedUserId,
+        },
+      }),
+    ]).catch(() => undefined);
 
     return created;
   }
@@ -375,6 +466,44 @@ export class ViolationsService {
       localDate: created.localDate,
     });
 
+    const accused = await this.prisma.user.findUnique({
+      where: { id: created.accusedUserId },
+      select: { teamId: true },
+    });
+    const [adminIds, leaderIds] = await Promise.all([
+      this.findActiveUserIdsByRole(Role.ADMIN),
+      this.findActiveLeadersByTeamId(accused?.teamId || null),
+    ]);
+
+    void Promise.all([
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'New observed violation',
+        body: 'Admin submitted an observed violation case.',
+        link: '/admin/requests?tab=violation',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          reason: created.reason,
+          accusedUserId: created.accusedUserId,
+        },
+      }),
+      this.notificationsService.notifyUsers(leaderIds, {
+        type: NotificationType.VIOLATION_CREATED,
+        priority: NotificationPriority.HIGH,
+        title: 'Team violation case created',
+        body: 'An observed violation case was submitted for your team.',
+        link: '/employee/dashboard',
+        payloadJson: {
+          violationCaseId: created.id,
+          source: created.source,
+          reason: created.reason,
+          accusedUserId: created.accusedUserId,
+        },
+      }),
+    ]).catch(() => undefined);
+
     return created;
   }
 
@@ -412,6 +541,15 @@ export class ViolationsService {
         decision: dto.decision,
         status: rejected.status,
       });
+
+      void this.notifyFinalizedCase({
+        caseId,
+        source: existing.source,
+        decision: dto.decision,
+        status: rejected.status,
+        accusedUserId: existing.accusedUserId,
+        reporterUserId: existing.createdByUserId,
+      }).catch(() => undefined);
 
       return rejected;
     }
@@ -524,6 +662,15 @@ export class ViolationsService {
       totalPoints: result.pointEntries.reduce((sum, row) => sum + row.points, 0),
     });
 
+    void this.notifyFinalizedCase({
+      caseId,
+      source: existing.source,
+      decision: dto.decision,
+      status: result.violationCase.status,
+      accusedUserId: existing.accusedUserId,
+      reporterUserId: existing.createdByUserId,
+    }).catch(() => undefined);
+
     return result;
   }
 
@@ -618,6 +765,97 @@ export class ViolationsService {
       csv,
       count: rows.length,
     };
+  }
+
+  private async notifyFinalizedCase(input: {
+    caseId: string;
+    source: ViolationSource;
+    decision: FinalizeViolationDecision;
+    status: ViolationStatus;
+    accusedUserId: string;
+    reporterUserId: string;
+  }) {
+    const accused = await this.prisma.user.findUnique({
+      where: { id: input.accusedUserId },
+      select: { teamId: true, displayName: true },
+    });
+
+    const [adminIds, leaderIds] = await Promise.all([
+      this.findActiveUserIdsByRole(Role.ADMIN),
+      this.findActiveLeadersByTeamId(accused?.teamId || null),
+    ]);
+
+    const memberReportRecipientIds =
+      input.source === ViolationSource.MEMBER_REPORT
+        ? [input.reporterUserId]
+        : [];
+
+    const recipients = [...memberReportRecipientIds, input.accusedUserId];
+
+    const payload = {
+      violationCaseId: input.caseId,
+      decision: input.decision,
+      status: input.status,
+      source: input.source,
+      accusedUserId: input.accusedUserId,
+    };
+
+    void Promise.all([
+      this.notificationsService.notifyUsers(recipients, {
+        type: NotificationType.VIOLATION_FINALIZED,
+        priority: NotificationPriority.HIGH,
+        title: 'Violation case finalized',
+        body:
+          input.decision === FinalizeViolationDecision.CONFIRMED
+            ? 'A violation case was confirmed by admin.'
+            : 'A violation case was rejected by admin.',
+        link: '/employee/requests',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers(leaderIds, {
+        type: NotificationType.VIOLATION_FINALIZED,
+        priority: NotificationPriority.HIGH,
+        title: 'Violation case finalized',
+        body: `Case for ${accused?.displayName || 'a team member'} was ${input.decision.toLowerCase()}.`,
+        link: '/employee/dashboard',
+        payloadJson: payload,
+      }),
+      this.notificationsService.notifyUsers(adminIds, {
+        type: NotificationType.VIOLATION_FINALIZED,
+        priority: NotificationPriority.HIGH,
+        title: 'Violation case finalized',
+        body: `Case ${input.caseId.slice(0, 8)} was ${input.decision.toLowerCase()}.`,
+        link: '/admin/requests?tab=violation',
+        payloadJson: {
+          ...payload,
+          reporterUserId: input.reporterUserId,
+        },
+      }),
+    ]).catch(() => undefined);
+  }
+
+  private async findActiveUserIdsByRole(role: Role): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        role,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  private async findActiveLeadersByTeamId(teamId: string | null): Promise<string[]> {
+    if (!teamId) return [];
+    const rows = await this.prisma.user.findMany({
+      where: {
+        teamId,
+        role: Role.LEADER,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
   private async resolveLeaderTeamId(leaderUserId: string): Promise<string> {
