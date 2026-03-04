@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { BreakSessionStatus, DutySessionStatus, Role } from "@prisma/client";
+import { DeductionsService } from "../deductions/deductions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportsService } from "../reports/reports.service";
 
@@ -8,6 +9,7 @@ export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reportsService: ReportsService,
+    private readonly deductionsService: DeductionsService,
   ) {}
 
   async runDailyJobs(secret: string | undefined) {
@@ -135,6 +137,20 @@ export class JobsService {
           status: BreakSessionStatus.AUTO_CLOSED,
         },
       });
+
+      const breakOvertimeMinutes = Math.max(
+        0,
+        elapsedMinutes - breakSession.expectedDurationMinutes,
+      );
+      await this.deductionsService
+        .recordBreakLateFromBreakSession({
+          breakSessionId: breakSession.id,
+          userId: breakSession.userId,
+          localDate: breakSession.localDate,
+          breakOvertimeMinutes,
+          actorUserId: breakSession.userId,
+        })
+        .catch(() => undefined);
 
       await this.prisma.auditEvent.create({
         data: {

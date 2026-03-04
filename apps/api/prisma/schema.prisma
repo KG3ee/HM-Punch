@@ -129,6 +129,16 @@ enum ViolationLedgerReason {
   COLLECTIVE_DEDUCTION
 }
 
+enum DeductionCategory {
+  PUNCH_LATE
+  BREAK_LATE
+}
+
+enum DeductionSourceType {
+  DUTY_SESSION
+  BREAK_SESSION
+}
+
 model Team {
   id             String  @id @default(cuid())
   name           String  @unique
@@ -190,6 +200,7 @@ model User {
   violationsAdminReviewed ViolationCase[] @relation("ViolationAdminReviewedByUser")
   violationPoints ViolationPointEntry[] @relation("ViolationPointTargetUser")
   violationPointsCreated ViolationPointEntry[] @relation("ViolationPointCreatedByUser")
+  deductionEntries DeductionEntry[]
 
   @@index([teamId])
   @@index([role])
@@ -554,4 +565,38 @@ model ViolationPointEntry {
 
   @@index([userId, createdAt])
   @@index([localDate])
+}
+
+model DeductionTier {
+  id           String            @id @default(cuid())
+  category     DeductionCategory
+  occurrenceNo Int
+  amountAed    Decimal           @db.Decimal(10, 2)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([category, occurrenceNo])
+  @@index([category])
+}
+
+model DeductionEntry {
+  id                           String              @id @default(cuid())
+  userId                       String
+  category                     DeductionCategory
+  sourceType                   DeductionSourceType
+  sourceId                     String
+  localDate                    String
+  periodMonth                  String
+  occurrenceNo                 Int
+  amountAed                    Decimal             @db.Decimal(10, 2)
+  currency                     String              @default("AED")
+  lateMinutesSnapshot          Int?
+  breakOvertimeMinutesSnapshot Int?
+  createdAt                    DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceType, sourceId])
+  @@index([userId, periodMonth, category])
+  @@index([periodMonth, category])
 }

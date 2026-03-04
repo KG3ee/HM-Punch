@@ -590,6 +590,17 @@ export class ShiftsService {
     return { pending };
   }
 
+  async getMyRequestSummary(userId: string): Promise<{ pending: number }> {
+    const pending = await this.prisma.shiftChangeRequest.count({
+      where: {
+        userId,
+        status: ShiftChangeRequestStatus.PENDING,
+      },
+    });
+
+    return { pending };
+  }
+
   async approveRequest(requestId: string, reviewerId: string) {
     const req = await this.prisma.shiftChangeRequest.findUnique({
       where: { id: requestId },

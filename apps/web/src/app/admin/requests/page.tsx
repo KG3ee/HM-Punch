@@ -257,6 +257,7 @@ function AdminRequestsContent() {
     try {
       await apiFetch(`/admin/requests/${id}/reject`, { method: 'POST' });
       setMessage('Request rejected successfully');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reject'); }
   }
@@ -266,6 +267,7 @@ function AdminRequestsContent() {
     try {
       await apiFetch(`/admin/requests/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
       setMessage('Request approved');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to approve'); }
   }
@@ -287,6 +289,7 @@ function AdminRequestsContent() {
       });
       setMessage('Driver request approved and assigned');
       setDriverApproveTarget(null); setSelectedDriverId('');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to approve'); }
     finally { setDriverActionId(null); }
@@ -297,6 +300,7 @@ function AdminRequestsContent() {
     try {
       await apiFetch(`/admin/driver-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({}) });
       setMessage('Driver request rejected');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reject'); }
     finally { setDriverActionId(null); }
@@ -340,6 +344,7 @@ function AdminRequestsContent() {
       setObservedReason('LEFT_WITHOUT_PUNCH');
       setObservedNote('');
       setMessage('Observed incident created');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create observed incident');
@@ -372,6 +377,7 @@ function AdminRequestsContent() {
       });
       setSelectedViolation(null);
       setMessage(finalizeDecision === 'CONFIRMED' ? 'Violation confirmed and points recorded' : 'Violation rejected');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to finalize violation');
@@ -507,6 +513,11 @@ function AdminRequestsContent() {
 
   function prevMonth() { if (filterMonth === 0) { setFilterMonth(11); setFilterYear(y => y - 1); } else setFilterMonth(m => m - 1); }
   function nextMonth() { if (filterMonth === 11) { setFilterMonth(0); setFilterYear(y => y + 1); } else setFilterMonth(m => m + 1); }
+
+  function notifyPendingBadgesRefresh() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pending-badges:refresh'));
+  }
 
   return (
     <AppShell title="Requests" subtitle="Approve or reject day off and driver requests" admin userRole="ADMIN">

@@ -41,6 +41,11 @@ export class LeaderController {
     return this.leaderService.listTeamRequests(teamId);
   }
 
+  @Get('requests/summary')
+  async getRequestsSummary(@CurrentUser() authUser: AuthUser) {
+    return this.leaderService.getRequestsSummary(authUser.sub);
+  }
+
   @Post('requests/:id/approve')
   async approveRequest(
     @CurrentUser() authUser: AuthUser,

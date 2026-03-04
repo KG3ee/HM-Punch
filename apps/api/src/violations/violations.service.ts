@@ -442,6 +442,32 @@ export class ViolationsService {
     });
   }
 
+  async getAdminSummary(): Promise<{
+    pending: number;
+    leaderValid: number;
+    leaderInvalid: number;
+    actionable: number;
+  }> {
+    const [pending, leaderValid, leaderInvalid] = await Promise.all([
+      this.prisma.violationCase.count({
+        where: { status: ViolationStatus.PENDING },
+      }),
+      this.prisma.violationCase.count({
+        where: { status: ViolationStatus.LEADER_VALID },
+      }),
+      this.prisma.violationCase.count({
+        where: { status: ViolationStatus.LEADER_INVALID },
+      }),
+    ]);
+
+    return {
+      pending,
+      leaderValid,
+      leaderInvalid,
+      actionable: pending + leaderValid + leaderInvalid,
+    };
+  }
+
   async createAdminObserved(adminUserId: string, dto: CreateObservedViolationDto) {
     const occurredAt = this.parseOccurredAt(dto.occurredAt);
     await this.ensureUserOnDutyAt(dto.accusedUserId, occurredAt);

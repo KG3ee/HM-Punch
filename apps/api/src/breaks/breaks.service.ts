@@ -5,12 +5,16 @@ import {
 } from "@nestjs/common";
 import { BreakSessionStatus, DutySessionStatus, User } from "@prisma/client";
 import { formatDateInZone, resolveEventTime, serializeEventTime } from "../core";
+import { DeductionsService } from "../deductions/deductions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateBreakPolicyDto } from "./dto/create-break-policy.dto";
 
 @Injectable()
 export class BreaksService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deductionsService: DeductionsService,
+  ) { }
 
   async listPolicies() {
     return this.prisma.breakPolicy.findMany({
@@ -325,6 +329,22 @@ export class BreaksService {
         breakPolicy: true,
       },
     });
+
+    if (isOvertime) {
+      const breakOvertimeMinutes = Math.max(
+        0,
+        actualMinutes - activeBreak.expectedDurationMinutes,
+      );
+      await this.deductionsService
+        .recordBreakLateFromBreakSession({
+          breakSessionId: updated.id,
+          userId: updated.userId,
+          localDate: updated.localDate,
+          breakOvertimeMinutes,
+          actorUserId: user.id,
+        })
+        .catch(() => undefined);
+    }
 
     this.prisma.auditEvent.create({
       data: {

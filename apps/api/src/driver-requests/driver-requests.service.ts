@@ -139,6 +139,17 @@ export class DriverRequestsService {
     return { pending };
   }
 
+  async getMySummary(userId: string): Promise<{ pending: number }> {
+    const pending = await this.prisma.driverRequest.count({
+      where: {
+        userId,
+        status: DriverRequestStatus.PENDING,
+      },
+    });
+
+    return { pending };
+  }
+
   async listAvailableForDrivers(driverId: string): Promise<DriverRequestWithRelations[]> {
     return this.prisma.driverRequest.findMany({
       where: {

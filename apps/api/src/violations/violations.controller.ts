@@ -81,6 +81,13 @@ export class ViolationsController {
 
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
+  @Get('admin/violations/summary')
+  async getAdminSummary() {
+    return this.violationsService.getAdminSummary();
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('admin/violations/observed')
   async createAdminObserved(
     @CurrentUser() authUser: AuthUser,

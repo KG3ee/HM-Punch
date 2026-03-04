@@ -152,6 +152,11 @@ export function LeaderTeamSections() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHistory, historyFrom, historyTo]);
 
+  function notifyPendingBadgesRefresh() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pending-badges:refresh'));
+  }
+
   async function approveRequest(id: string) {
     setActionId(id);
     setError('');
@@ -161,6 +166,7 @@ export function LeaderTeamSections() {
         body: JSON.stringify({}),
       });
       setMessage('Request approved');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve');
@@ -175,6 +181,7 @@ export function LeaderTeamSections() {
     try {
       await apiFetch(`/leader/requests/${id}/reject`, { method: 'POST' });
       setMessage('Request rejected');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject');

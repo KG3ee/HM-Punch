@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { clearAuth } from '@/lib/auth';
@@ -22,8 +22,18 @@ const adminNav: NavItem[] = [
   { href: '/admin/users', label: 'Users' },
   { href: '/admin/shifts', label: 'Shifts' },
   { href: '/admin/requests', label: 'Requests' },
+  { href: '/admin/deductions', label: 'Deductions' },
   { href: '/admin/workflow', label: 'Guide' },
 ];
+
+type PendingSummary = { pending: number };
+type RegistrationSummary = { actionable: number };
+type ViolationSummary = { actionable: number };
+type LeaderRequestsSummary = {
+  pendingShift: number;
+  pendingViolation: number;
+  actionable: number;
+};
 
 function ProfileAvatar({ me, admin, currentPath }: { me: MeUser | null; admin: boolean; currentPath: string }) {
   const [open, setOpen] = useState(false);
@@ -209,7 +219,12 @@ export function AppShell({
   const isMobile = useIsMobileClient();
   const [authChecked, setAuthChecked] = useState(false);
   const [me, setMe] = useState<MeUser | null>(null);
+  const [adminUsersBadge, setAdminUsersBadge] = useState(0);
+  const [adminRequestsBadge, setAdminRequestsBadge] = useState(0);
+  const [leaderRequestsBadge, setLeaderRequestsBadge] = useState(0);
+  const [employeeRequestsBadge, setEmployeeRequestsBadge] = useState(0);
   const currentPath = pathname || '/';
+  const currentRole = (me?.role || userRole || '') as UserRole | '';
 
   useEffect(() => {
     apiFetch<MeUser>('/me')
@@ -227,6 +242,109 @@ export function AppShell({
     if (!me) return;
     void ensurePushSubscription(me.role).catch(() => undefined);
   }, [me]);
+
+  const resetPendingBadges = useCallback(() => {
+    setAdminUsersBadge(0);
+    setAdminRequestsBadge(0);
+    setLeaderRequestsBadge(0);
+    setEmployeeRequestsBadge(0);
+  }, []);
+
+  const refreshPendingBadges = useCallback(async () => {
+    if (!currentRole) {
+      resetPendingBadges();
+      return;
+    }
+
+    try {
+      if (currentRole === 'ADMIN') {
+        const [registration, shift, driver, violation] = await Promise.all([
+          apiFetch<RegistrationSummary>('/admin/registration-requests/summary'),
+          apiFetch<PendingSummary>('/admin/requests/summary'),
+          apiFetch<PendingSummary>('/admin/driver-requests/summary'),
+          apiFetch<ViolationSummary>('/admin/violations/summary'),
+        ]);
+
+        setAdminUsersBadge(Math.max(0, registration.actionable || 0));
+        setAdminRequestsBadge(
+          Math.max(0, shift.pending || 0) +
+            Math.max(0, driver.pending || 0) +
+            Math.max(0, violation.actionable || 0),
+        );
+        setLeaderRequestsBadge(0);
+        setEmployeeRequestsBadge(0);
+        return;
+      }
+
+      if (currentRole === 'LEADER') {
+        const summary = await apiFetch<LeaderRequestsSummary>('/leader/requests/summary');
+        setLeaderRequestsBadge(Math.max(0, summary.actionable || 0));
+        setAdminUsersBadge(0);
+        setAdminRequestsBadge(0);
+        setEmployeeRequestsBadge(0);
+        return;
+      }
+
+      if (currentRole === 'MEMBER' || currentRole === 'MAID' || currentRole === 'CHEF') {
+        const [shift, driver] = await Promise.all([
+          apiFetch<PendingSummary>('/shifts/requests/me/summary'),
+          apiFetch<PendingSummary>('/driver-requests/me/summary'),
+        ]);
+        setEmployeeRequestsBadge(
+          Math.max(0, shift.pending || 0) + Math.max(0, driver.pending || 0),
+        );
+        setAdminUsersBadge(0);
+        setAdminRequestsBadge(0);
+        setLeaderRequestsBadge(0);
+        return;
+      }
+
+      resetPendingBadges();
+    } catch {
+      resetPendingBadges();
+    }
+  }, [currentRole, resetPendingBadges]);
+
+  useEffect(() => {
+    if (!authChecked || !me) return;
+
+    const refreshNow = () => {
+      void refreshPendingBadges();
+    };
+
+    refreshNow();
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshNow();
+      }
+    };
+
+    const onFocus = () => {
+      refreshNow();
+    };
+
+    const onRefreshEvent = () => {
+      refreshNow();
+    };
+
+    const timer = window.setInterval(() => {
+      if (!document.hidden) {
+        refreshNow();
+      }
+    }, 15_000);
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pending-badges:refresh', onRefreshEvent as EventListener);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pending-badges:refresh', onRefreshEvent as EventListener);
+    };
+  }, [authChecked, me, refreshPendingBadges]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -250,9 +368,22 @@ export function AppShell({
     );
   }
 
-  if (isEmployeeView && isMobile && userRole === 'MEMBER') {
+  if (isEmployeeView && isMobile && currentRole === 'MEMBER') {
     return <MobileBlockedNotice title="Office desktop required" />;
   }
+
+  const formatBadgeCount = (count: number): string => (count > 99 ? '99+' : String(count));
+
+  const renderNavLink = (href: string, label: string, isActive: boolean, badgeCount = 0) => (
+    <Link href={href} className={isActive ? 'active' : ''}>
+      <span className="shell-nav-link-inner">
+        <span>{label}</span>
+        {badgeCount > 0 ? (
+          <span className="shell-nav-badge">{formatBadgeCount(badgeCount)}</span>
+        ) : null}
+      </span>
+    </Link>
+  );
 
   return (
     <main>
@@ -285,51 +416,61 @@ export function AppShell({
         {hasNav ? (
           <nav className="shell-nav">
             {isEmployeeView ? (
-              userRole === 'DRIVER' ? (
+              currentRole === 'DRIVER' ? (
                 <>
-                  <Link href="/employee/driver" className={pathname === '/employee/driver' ? 'active' : ''}>
-                    Dashboard
-                  </Link>
-                  <Link href="/employee/workflow" className={pathname === '/employee/workflow' ? 'active' : ''}>
-                    Guide
-                  </Link>
+                  {renderNavLink('/employee/driver', 'Dashboard', pathname === '/employee/driver')}
+                  {renderNavLink('/employee/workflow', 'Guide', pathname === '/employee/workflow')}
                 </>
-              ) : userRole === 'LEADER' ? (
+              ) : currentRole === 'LEADER' ? (
                 <>
-                  <Link href="/employee/dashboard" className={pathname === '/employee/dashboard' ? 'active' : ''}>
-                    Dashboard
-                  </Link>
-                  <Link href="/employee/requests" className={pathname?.startsWith('/employee/requests') ? 'active' : ''}>
-                    Requests
-                  </Link>
-                  <Link href="/employee/workflow" className={pathname === '/employee/workflow' ? 'active' : ''}>
-                    Guide
-                  </Link>
+                  {renderNavLink('/employee/dashboard', 'Dashboard', pathname === '/employee/dashboard')}
+                  {renderNavLink(
+                    '/employee/requests',
+                    'Requests',
+                    Boolean(pathname?.startsWith('/employee/requests')),
+                    leaderRequestsBadge,
+                  )}
+                  {renderNavLink('/employee/workflow', 'Guide', pathname === '/employee/workflow')}
                 </>
               ) : (
                 <>
-                  <Link href="/employee/dashboard" className={pathname === '/employee/dashboard' ? 'active' : ''}>
-                    Dashboard
-                  </Link>
-                  <Link href="/employee/requests" className={pathname?.startsWith('/employee/requests') ? 'active' : ''}>
-                    Requests
-                  </Link>
-                  <Link href="/employee/workflow" className={pathname === '/employee/workflow' ? 'active' : ''}>
-                    Guide
-                  </Link>
+                  {renderNavLink('/employee/dashboard', 'Dashboard', pathname === '/employee/dashboard')}
+                  {renderNavLink(
+                    '/employee/requests',
+                    'Requests',
+                    Boolean(pathname?.startsWith('/employee/requests')),
+                    employeeRequestsBadge,
+                  )}
+                  {renderNavLink('/employee/workflow', 'Guide', pathname === '/employee/workflow')}
                 </>
               )
             ) : null}
             {admin
-              ? adminNav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={pathname === item.href ? 'active' : ''}
-                >
-                  {item.label}
-                </Link>
-              ))
+              ? adminNav.map((item) => {
+                const badgeCount =
+                  item.href === '/admin/users'
+                    ? adminUsersBadge
+                    : item.href === '/admin/requests'
+                      ? adminRequestsBadge
+                      : 0;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={pathname === item.href ? 'active' : ''}
+                  >
+                    <span className="shell-nav-link-inner">
+                      <span>{item.label}</span>
+                      {badgeCount > 0 ? (
+                        <span className="shell-nav-badge">
+                          {formatBadgeCount(badgeCount)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </Link>
+                );
+              })
               : null}
           </nav>
         ) : null}

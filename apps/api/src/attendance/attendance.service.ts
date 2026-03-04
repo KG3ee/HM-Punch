@@ -13,6 +13,7 @@ import {
 } from "../core";
 import { DutySessionStatus, Team, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { DeductionsService } from "../deductions/deductions.service";
 import { ShiftsService } from "../shifts/shifts.service";
 
 @Injectable()
@@ -20,6 +21,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly shiftsService: ShiftsService,
+    private readonly deductionsService: DeductionsService,
   ) { }
 
   async punchOn(user: User, note?: string, clientTimestamp?: string) {
@@ -134,6 +136,18 @@ export class AttendanceService {
         createdById: user.id,
       },
     });
+
+    if (created.lateMinutes > 0) {
+      await this.deductionsService
+        .recordPunchLateFromDutySession({
+          dutySessionId: created.id,
+          userId: created.userId,
+          localDate: created.localDate,
+          lateMinutes: created.lateMinutes,
+          actorUserId: user.id,
+        })
+        .catch(() => undefined);
+    }
 
     // Fire audit non-blocking — does not affect the response
     this.prisma.auditEvent.create({

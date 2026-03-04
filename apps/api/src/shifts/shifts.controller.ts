@@ -88,6 +88,13 @@ export class ShiftsController {
     return this.shiftsService.listRequests(false, user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('shifts/requests/me/summary')
+  async getMyRequestSummary(@CurrentUser() authUser: AuthUser) {
+    const user = await this.usersService.getOrThrow(authUser.sub);
+    return this.shiftsService.getMyRequestSummary(user.id);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/requests')

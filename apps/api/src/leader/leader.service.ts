@@ -8,7 +8,8 @@ import {
   BreakSessionStatus,
   DutySessionStatus,
   Role,
-  ShiftChangeRequestStatus
+  ShiftChangeRequestStatus,
+  ViolationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -103,6 +104,40 @@ export class LeaderService {
       },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async getRequestsSummary(leaderUserId: string): Promise<{
+    pendingShift: number;
+    pendingViolation: number;
+    actionable: number;
+  }> {
+    const teamId = await this.resolveTeamId(leaderUserId);
+    const [pendingShift, pendingViolation] = await Promise.all([
+      this.prisma.shiftChangeRequest.count({
+        where: {
+          status: ShiftChangeRequestStatus.PENDING,
+          user: { teamId },
+        },
+      }),
+      this.prisma.violationCase.count({
+        where: {
+          status: {
+            in: [
+              ViolationStatus.PENDING,
+              ViolationStatus.LEADER_VALID,
+              ViolationStatus.LEADER_INVALID,
+            ],
+          },
+          accusedUser: { teamId },
+        },
+      }),
+    ]);
+
+    return {
+      pendingShift,
+      pendingViolation,
+      actionable: pendingShift + pendingViolation,
+    };
   }
 
   async approveRequest(requestId: string, reviewerId: string, teamId: string) {

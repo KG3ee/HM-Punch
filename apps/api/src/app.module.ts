@@ -18,6 +18,7 @@ import { DriverRequestsModule } from "./driver-requests/driver-requests.module";
 import { LeaderModule } from "./leader/leader.module";
 import { ViolationsModule } from "./violations/violations.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { DeductionsModule } from "./deductions/deductions.module";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     LeaderModule,
     ViolationsModule,
     NotificationsModule,
+    DeductionsModule,
 
     ReportsModule,
     JobsModule,

@@ -306,6 +306,11 @@ export function LeaderDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHistory, historyFrom, historyTo]);
 
+  function notifyPendingBadgesRefresh() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pending-badges:refresh'));
+  }
+
   async function loadHistory() {
     try {
       setAttendance(await apiFetch<AttendanceRecord[]>(
@@ -326,6 +331,7 @@ export function LeaderDashboard({
         body: JSON.stringify({}),
       });
       setMessage('Request approved');
+      notifyPendingBadgesRefresh();
       await loadTeam();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
@@ -338,6 +344,7 @@ export function LeaderDashboard({
     try {
       await apiFetch(`/leader/requests/${id}/reject`, { method: 'POST' });
       setMessage('Request rejected');
+      notifyPendingBadgesRefresh();
       await loadTeam();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
@@ -353,6 +360,7 @@ export function LeaderDashboard({
         body: JSON.stringify({ decision }),
       });
       setMessage(decision === 'LEADER_VALID' ? 'Violation marked valid' : 'Violation marked invalid');
+      notifyPendingBadgesRefresh();
       await loadTeam();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to triage violation');
@@ -382,6 +390,7 @@ export function LeaderDashboard({
       setObservedReason('LEFT_WITHOUT_PUNCH');
       setObservedNote('');
       setMessage('Observed incident submitted');
+      notifyPendingBadgesRefresh();
       await loadTeam();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit observed incident');

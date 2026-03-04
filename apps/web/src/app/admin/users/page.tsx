@@ -619,6 +619,11 @@ function AdminUsersContent() {
     return new Date(value).toLocaleString();
   }
 
+  function notifyPendingBadgesRefresh() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pending-badges:refresh'));
+  }
+
   function openApproveModal(request: RegistrationRequestRow) {
     setApproveTarget(request);
     setApproveTeamId(request.requestedTeam?.id || '');
@@ -637,6 +642,7 @@ function AdminUsersContent() {
       });
       setApproveTarget(null);
       flash('Registration approved — user account created');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve request');
@@ -651,6 +657,7 @@ function AdminUsersContent() {
         body: JSON.stringify({ reviewNote: note })
       });
       flash('Registration request rejected');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject request');

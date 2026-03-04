@@ -32,8 +32,8 @@ const OVERVIEW_FLOW: { id: string; icon: string; label: string; desc: string; co
   { id: 'punch', icon: '\u{1F552}', label: 'Punch On/Off', desc: 'Staff punches in to start / out to end shift', color: 'var(--ok)' },
   { id: 'work', icon: '\u{1F4BC}', label: 'Work & Breaks', desc: 'Take breaks, submit requests during shift', color: 'var(--warning)' },
   { id: 'review', icon: '\u{1F50D}', label: 'Leader Reviews', desc: 'Leader triages violations while Admin handles request approvals', color: '#a78bfa' },
-  { id: 'admin', icon: '\u{1F6E0}\uFE0F', label: 'Admin Manages', desc: 'Admin finalizes, manages shifts & users', color: '#f87171' },
-  { id: 'report', icon: '\u{1F4CA}', label: 'Reports', desc: 'View attendance history, points & analytics', color: 'var(--brand)' },
+  { id: 'admin', icon: '\u{1F6E0}\uFE0F', label: 'Admin Manages', desc: 'Admin finalizes requests, users, shifts, and AED policy', color: '#f87171' },
+  { id: 'report', icon: '\u{1F4CA}', label: 'Reports & Deductions', desc: 'Track attendance, violation points, and AED deduction ledger', color: 'var(--brand)' },
 ];
 
 const ROLES: RoleWorkflow[] = [
@@ -49,7 +49,7 @@ const ROLES: RoleWorkflow[] = [
       { id: 'm3', icon: '\u2615', title: 'Take Breaks', desc: 'Use keyboard shortcuts (B=Bathroom, W=WC, C=Cigarette, 1/2/3=Coffee) or click break buttons. Each break type has a session limit.', color: 'var(--warning)' },
       { id: 'm4', icon: '\u{1F4CB}', title: 'Submit Requests', desc: 'Go to Requests tab to submit shift change requests (half-day, full day off) or driver requests for transportation.', color: 'var(--brand)' },
       { id: 'm5', icon: '\u{1F6A8}', title: 'Report Violations', desc: 'Report anonymous violations against other staff. Select the person, reason, and add notes. Your identity stays anonymous to leaders.', color: 'var(--danger)' },
-      { id: 'm6', icon: '\u{1F534}', title: 'Punch Off', desc: 'Click the red "PUNCH OFF" button to end your duty session. Late minutes and overtime are calculated automatically.', color: 'var(--danger)' },
+      { id: 'm6', icon: '\u{1F534}', title: 'Punch Off', desc: 'Click the red "PUNCH OFF" button to end your duty session. Late and overtime are calculated automatically, and deduction rules may apply.', color: 'var(--danger)' },
     ],
     features: [
       { icon: '\u{1F4F6}', title: 'Offline Support', desc: 'Punch and break actions work offline and sync when connection returns' },
@@ -126,20 +126,22 @@ const ROLES: RoleWorkflow[] = [
     label: 'Admin',
     color: '#f87171',
     tagClass: 'role-admin',
-    summary: 'Full system administrator who manages users, shifts, requests, violations, and views all reports.',
+    summary: 'Full system administrator who manages users, shifts, requests, violations, and AED deductions.',
     steps: [
       { id: 'a1', icon: '\u{1F511}', title: 'Login', desc: 'Log in to the Admin dashboard with full system access.', color: 'var(--brand)' },
       { id: 'a2', icon: '\u{1F4E1}', title: 'Live Board', desc: 'Monitor all staff in real-time: who is on duty, on break, or absent. Admin can punch on/off from header for their own admin session.', color: 'var(--ok)' },
       { id: 'a3', icon: '\u{1F465}', title: 'Manage Users', desc: 'Create, edit, deactivate users. Approve new registration requests. Reset passwords and assign roles/teams.', color: '#f87171' },
       { id: 'a4', icon: '\u{1F4C5}', title: 'Manage Shifts', desc: 'Create multi-segment shift presets. Assign shifts to teams or individuals. Set date-specific overrides.', color: '#a78bfa' },
       { id: 'a5', icon: '\u2705', title: 'Review Requests', desc: 'Approve/reject shift changes. Assign drivers to trip requests. Finalize violations with point rewards/deductions.', color: 'var(--warning)' },
-      { id: 'a6', icon: '\u{1F4CA}', title: 'Reports & History', desc: 'View attendance history, break reports, violation points ledger. Filter by date, team, and user. Export CSV.', color: 'var(--brand)' },
+      { id: 'a6', icon: '\u{1F4B0}', title: 'Manage Deductions', desc: 'Set monthly AED tiers for PUNCH_LATE and BREAK_LATE. If occurrence exceeds configured tiers, last tier amount is reused.', color: 'var(--warning)' },
+      { id: 'a7', icon: '\u{1F4CA}', title: 'Reports & History', desc: 'View attendance history, break reports, violation points ledger, and deduction summary. Filter by date/team/user and export CSV.', color: 'var(--brand)' },
     ],
     features: [
       { icon: '\u{1F6E0}\uFE0F', title: 'User Management', desc: 'Create, edit, deactivate users and approve registrations' },
       { icon: '\u{1F4C5}', title: 'Shift Management', desc: 'Create presets with multi-segment shifts and overrides' },
       { icon: '\u{1F4CB}', title: 'Request Center', desc: 'Unified view of shift, driver, and violation requests' },
       { icon: '\u{1F4CA}', title: 'Analytics', desc: 'Attendance history, break reports, and violation points' },
+      { icon: '\u{1F4B8}', title: 'AED Deductions', desc: 'Monthly tier policy + immutable deduction ledger for punch and break lateness' },
       { icon: '\u{1F552}', title: 'Admin Punch', desc: 'Quick punch on/off controls in admin header for the admin account session' },
       { icon: '\u{1F4E4}', title: 'CSV Export', desc: 'Export violation points and attendance data' },
     ],
@@ -185,6 +187,13 @@ const SHIFT_REQUEST_FLOW = [
   { step: 1, icon: '\u{1F4CB}', label: 'Member Submits', desc: 'Half-day, full day off, or custom', color: 'var(--brand)', actor: 'Member' },
   { step: 2, icon: '\u{1F50D}', label: 'Admin Reviews', desc: 'Admin approves or rejects the request', color: '#f87171', actor: 'Admin' },
   { step: 3, icon: '\u{1F514}', label: 'Member Notified', desc: 'Get notified of the decision', color: 'var(--ok)', actor: 'System' },
+];
+
+const DEDUCTION_FLOW = [
+  { step: 1, icon: '\u23F0', label: 'Late Event Captured', desc: 'Punch ON late or overtime break is detected', color: 'var(--warning)', actor: 'System' },
+  { step: 2, icon: '\u{1F522}', label: 'Monthly Occurrence', desc: 'Count increments per user + category + month', color: 'var(--brand)', actor: 'System' },
+  { step: 3, icon: '\u{1F4B5}', label: 'Tier Amount Applied', desc: 'AED from matching tier; overflow repeats the last tier', color: 'var(--danger)', actor: 'System' },
+  { step: 4, icon: '\u{1F9FE}', label: 'Ledger Stored', desc: 'Immutable deduction entry saved and visible in Admin Deductions tab', color: 'var(--ok)', actor: 'System/Admin' },
 ];
 
 /* ── Component ── */
@@ -419,6 +428,30 @@ export default function WorkflowPage() {
                   <div className="wf-pipeline-desc">{s.desc}</div>
                   <span className="wf-pipeline-actor" style={{ color: s.color }}>{s.actor}</span>
                   {i < SHIFT_REQUEST_FLOW.length - 1 && <div className="wf-pipeline-arrow">{'\u2192'}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* AED deduction workflow */}
+          <div className="wf-workflow-block">
+            <h3 className="wf-workflow-title">
+              <span style={{ marginRight: '0.5rem' }}>{'\u{1F4B8}'}</span>
+              AED Deduction Workflow
+            </h3>
+            <p className="wf-workflow-desc">
+              Deductions are generated in real-time from late events using monthly tier policy and stored in immutable ledger entries.
+            </p>
+            <div className="wf-pipeline">
+              {DEDUCTION_FLOW.map((s, i) => (
+                <div key={i} className="wf-pipeline-step">
+                  <div className="wf-pipeline-node" style={{ borderColor: s.color }}>
+                    <span className="wf-pipeline-icon">{s.icon}</span>
+                  </div>
+                  <div className="wf-pipeline-label">{s.label}</div>
+                  <div className="wf-pipeline-desc">{s.desc}</div>
+                  <span className="wf-pipeline-actor" style={{ color: s.color }}>{s.actor}</span>
+                  {i < DEDUCTION_FLOW.length - 1 && <div className="wf-pipeline-arrow">{'\u2192'}</div>}
                 </div>
               ))}
             </div>

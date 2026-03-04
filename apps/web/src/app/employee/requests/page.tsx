@@ -93,6 +93,11 @@ export default function EmployeeRequestsPage() {
     void load();
   }, []);
 
+  function notifyPendingBadgesRefresh() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pending-badges:refresh'));
+  }
+
   async function load() {
     setLoading(true);
     setError('');
@@ -142,6 +147,7 @@ export default function EmployeeRequestsPage() {
       setRequestType('HALF_DAY_MORNING');
       setRequestedDate('');
       setReason('');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit request');
@@ -184,6 +190,7 @@ export default function EmployeeRequestsPage() {
       setReturnTime('');
       setReturnLocation('');
       setContactNumber('');
+      notifyPendingBadgesRefresh();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit driver request');

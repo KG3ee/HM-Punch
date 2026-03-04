@@ -26,6 +26,12 @@ export class DriverRequestsController {
     return this.driverRequestsService.listMyRequests(authUser.sub);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('driver-requests/me/summary')
+  async getMySummary(@CurrentUser() authUser: AuthUser) {
+    return this.driverRequestsService.getMySummary(authUser.sub);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/driver-requests')
