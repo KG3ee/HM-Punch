@@ -11,7 +11,7 @@ import {
   resolveEventTime,
   serializeEventTime,
 } from "../core";
-import { DutySessionStatus, Team, User } from "@prisma/client";
+import { BreakSessionStatus, DutySessionStatus, Team, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { DeductionsService } from "../deductions/deductions.service";
 import { ShiftsService } from "../shifts/shifts.service";
@@ -434,6 +434,173 @@ export class AttendanceService {
       ...(take ? { take } : {}),
       ...(skip ? { skip } : {}),
     });
+  }
+
+  async getAdminTotalSummary(params: {
+    from?: string;
+    to?: string;
+    teamId?: string;
+    userId?: string;
+  }) {
+    const timezone = process.env.APP_TIMEZONE || "Asia/Dubai";
+    const today = formatDateInZone(new Date(), timezone);
+    const from = params.from || today;
+    const to = params.to || from;
+
+    const dutySessions = await this.prisma.dutySession.findMany({
+      where: {
+        localDate: {
+          gte: from,
+          lte: to,
+        },
+        ...(params.teamId ? { teamId: params.teamId } : {}),
+        ...(params.userId ? { userId: params.userId } : {}),
+      },
+      select: {
+        id: true,
+        localDate: true,
+        shiftDate: true,
+        punchedOnAt: true,
+        punchedOffAt: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            role: true,
+          },
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: [{ localDate: "desc" }, { punchedOnAt: "desc" }],
+    });
+
+    if (dutySessions.length === 0) {
+      return {
+        userTotals: [],
+        sessionMatrix: [],
+      };
+    }
+
+    const sessionIds = dutySessions.map((session) => session.id);
+    const breakRows = await this.prisma.breakSession.findMany({
+      where: {
+        dutySessionId: { in: sessionIds },
+        status: {
+          in: [BreakSessionStatus.COMPLETED, BreakSessionStatus.AUTO_CLOSED],
+        },
+      },
+      select: {
+        dutySessionId: true,
+        userId: true,
+        breakPolicy: {
+          select: {
+            code: true,
+          },
+        },
+      },
+    });
+
+    type BreakCount = {
+      wc: number;
+      cy: number;
+      bwc: number;
+      cfPlus1: number;
+      cfPlus2: number;
+      cfPlus3: number;
+    };
+
+    const newBreakCount = (): BreakCount => ({
+      wc: 0,
+      cy: 0,
+      bwc: 0,
+      cfPlus1: 0,
+      cfPlus2: 0,
+      cfPlus3: 0,
+    });
+
+    const sessionBreakCount = new Map<string, BreakCount>();
+    const userBreakCount = new Map<string, number>();
+
+    for (const row of breakRows) {
+      if (!row.dutySessionId) {
+        continue;
+      }
+      const code = row.breakPolicy.code.trim().toLowerCase();
+      const bucket = sessionBreakCount.get(row.dutySessionId) || newBreakCount();
+
+      if (code === "wc") bucket.wc += 1;
+      else if (code === "cy") bucket.cy += 1;
+      else if (code === "bwc") bucket.bwc += 1;
+      else if (code === "cf+1") bucket.cfPlus1 += 1;
+      else if (code === "cf+2") bucket.cfPlus2 += 1;
+      else if (code === "cf+3") bucket.cfPlus3 += 1;
+
+      sessionBreakCount.set(row.dutySessionId, bucket);
+      userBreakCount.set(row.userId, (userBreakCount.get(row.userId) || 0) + 1);
+    }
+
+    const userTotalsMap = new Map<string, {
+      userId: string;
+      username: string;
+      displayName: string;
+      role: string;
+      teamName: string;
+      totalDutySessions: number;
+      totalBreaks: number;
+    }>();
+
+    for (const session of dutySessions) {
+      const existing = userTotalsMap.get(session.user.id) || {
+        userId: session.user.id,
+        username: session.user.username,
+        displayName: session.user.displayName,
+        role: session.user.role,
+        teamName: session.team?.name || "No Team",
+        totalDutySessions: 0,
+        totalBreaks: 0,
+      };
+
+      existing.totalDutySessions += 1;
+      userTotalsMap.set(session.user.id, existing);
+    }
+
+    const userTotals = [...userTotalsMap.values()]
+      .map((row) => ({
+        ...row,
+        totalBreaks: userBreakCount.get(row.userId) || 0,
+      }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+    const sessionMatrix = dutySessions.map((session) => {
+      const counts = sessionBreakCount.get(session.id) || newBreakCount();
+      const sessionTotalBreaks =
+        counts.wc + counts.cy + counts.bwc + counts.cfPlus1 + counts.cfPlus2 + counts.cfPlus3;
+
+      return {
+        sessionId: session.id,
+        localDate: session.localDate,
+        shiftDate: session.shiftDate,
+        punchedOnAt: session.punchedOnAt,
+        punchedOffAt: session.punchedOffAt,
+        status: session.status,
+        user: session.user,
+        team: session.team,
+        breakCounts: counts,
+        sessionTotalBreaks,
+      };
+    });
+
+    return {
+      userTotals,
+      sessionMatrix,
+    };
   }
 
   private computeOvertimeMinutes(

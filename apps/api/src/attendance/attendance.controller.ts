@@ -73,4 +73,21 @@ export class AttendanceController {
       offset,
     });
   }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get("/admin/total")
+  async getAdminTotal(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("teamId") teamId?: string,
+    @Query("userId") userId?: string,
+  ) {
+    return this.attendanceService.getAdminTotalSummary({
+      from,
+      to,
+      teamId,
+      userId,
+    });
+  }
 }

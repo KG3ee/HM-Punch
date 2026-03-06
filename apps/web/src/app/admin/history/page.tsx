@@ -34,6 +34,41 @@ type BreakRecord = {
     user: { displayName: string; team?: { name: string } | null };
 };
 
+type TotalUserRow = {
+    userId: string;
+    username: string;
+    displayName: string;
+    role: string;
+    teamName: string;
+    totalDutySessions: number;
+    totalBreaks: number;
+};
+
+type TotalSessionRow = {
+    sessionId: string;
+    localDate: string;
+    shiftDate: string;
+    punchedOnAt: string;
+    punchedOffAt?: string | null;
+    status: 'ACTIVE' | 'CLOSED' | 'CANCELLED';
+    user: { id: string; username: string; displayName: string; role: string };
+    team?: { id: string; name: string } | null;
+    breakCounts: {
+        wc: number;
+        cy: number;
+        bwc: number;
+        cfPlus1: number;
+        cfPlus2: number;
+        cfPlus3: number;
+    };
+    sessionTotalBreaks: number;
+};
+
+type AdminTotalResponse = {
+    userTotals: TotalUserRow[];
+    sessionMatrix: TotalSessionRow[];
+};
+
 function todayStr(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -54,6 +89,7 @@ export default function AdminHistoryPage() {
     const [users, setUsers] = useState<UserRef[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [breaks, setBreaks] = useState<BreakRecord[]>([]);
+    const [totals, setTotals] = useState<AdminTotalResponse>({ userTotals: [], sessionMatrix: [] });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -62,7 +98,7 @@ export default function AdminHistoryPage() {
     const [toDate, setToDate] = useState(todayStr());
     const [teamId, setTeamId] = useState('');
     const [userId, setUserId] = useState('');
-    const [tab, setTab] = useState<'duty' | 'breaks'>('duty');
+    const [tab, setTab] = useState<'duty' | 'breaks' | 'total'>('duty');
 
     useEffect(() => {
         void loadFilters();
@@ -92,12 +128,14 @@ export default function AdminHistoryPage() {
             if (teamId) params.set('teamId', teamId);
             if (userId) params.set('userId', userId);
 
-            const [dutyData, breakData] = await Promise.all([
+            const [dutyData, breakData, totalData] = await Promise.all([
                 apiFetch<AttendanceRecord[]>(`/attendance/admin/attendance?${params.toString()}&limit=500`),
-                apiFetch<BreakRecord[]>(`/breaks/admin/history?${params.toString()}&limit=500`)
+                apiFetch<BreakRecord[]>(`/breaks/admin/history?${params.toString()}&limit=500`),
+                apiFetch<AdminTotalResponse>(`/attendance/admin/total?${params.toString()}`)
             ]);
             setAttendance(dutyData);
             setBreaks(breakData);
+            setTotals(totalData);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load history');
         } finally {
@@ -169,6 +207,59 @@ export default function AdminHistoryPage() {
             b.isOvertime ? 'Yes' : 'No'
         ]);
         downloadCSV([header, ...rows], `break-history-${fromDate}-${toDate}.csv`);
+    }
+
+    function exportTotalUsersCSV(): void {
+        const header = ['User', 'Username', 'Role', 'Team', 'Total Duty Sessions', 'Total Breaks'];
+        const rows = totals.userTotals.map((row) => [
+            row.displayName,
+            row.username,
+            row.role,
+            row.teamName,
+            String(row.totalDutySessions),
+            String(row.totalBreaks)
+        ]);
+        downloadCSV([header, ...rows], `history-total-users-${fromDate}-${toDate}.csv`);
+    }
+
+    function exportTotalMatrixCSV(): void {
+        const header = [
+            'Date',
+            'Shift Date',
+            'Employee',
+            'Username',
+            'Role',
+            'Group',
+            'Punch On',
+            'Punch Off',
+            'Status',
+            'WC',
+            'CY',
+            'BWC',
+            'CF+1',
+            'CF+2',
+            'CF+3',
+            'Session Total Breaks'
+        ];
+        const rows = totals.sessionMatrix.map((row) => [
+            row.localDate,
+            row.shiftDate,
+            row.user.displayName,
+            row.user.username,
+            row.user.role,
+            row.team?.name || 'No Team',
+            fmtTime(row.punchedOnAt),
+            row.punchedOffAt ? fmtTime(row.punchedOffAt) : '',
+            row.status,
+            String(row.breakCounts.wc),
+            String(row.breakCounts.cy),
+            String(row.breakCounts.bwc),
+            String(row.breakCounts.cfPlus1),
+            String(row.breakCounts.cfPlus2),
+            String(row.breakCounts.cfPlus3),
+            String(row.sessionTotalBreaks)
+        ]);
+        downloadCSV([header, ...rows], `history-total-matrix-${fromDate}-${toDate}.csv`);
     }
 
     function downloadCSV(data: string[][], filename: string): void {
@@ -247,16 +338,51 @@ export default function AdminHistoryPage() {
                     <a className={tab === 'breaks' ? 'active' : ''} onClick={() => setTab('breaks')} style={{ cursor: 'pointer' }}>
                         ☕ Breaks ({breaks.length})
                     </a>
+                    <a className={tab === 'total' ? 'active' : ''} onClick={() => setTab('total')} style={{ cursor: 'pointer' }}>
+                        🧮 Total
+                    </a>
                 </nav>
                 <div className="toolbar-spacer" />
-                <button
-                    type="button"
-                    className="button button-ghost button-sm"
-                    onClick={tab === 'duty' ? exportDutyCSV : exportBreaksCSV}
-                    disabled={tab === 'duty' ? attendance.length === 0 : breaks.length === 0}
-                >
-                    📥 Export CSV
-                </button>
+                {tab === 'duty' ? (
+                    <button
+                        type="button"
+                        className="button button-ghost button-sm"
+                        onClick={exportDutyCSV}
+                        disabled={attendance.length === 0}
+                    >
+                        📥 Export CSV
+                    </button>
+                ) : null}
+                {tab === 'breaks' ? (
+                    <button
+                        type="button"
+                        className="button button-ghost button-sm"
+                        onClick={exportBreaksCSV}
+                        disabled={breaks.length === 0}
+                    >
+                        📥 Export CSV
+                    </button>
+                ) : null}
+                {tab === 'total' ? (
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            className="button button-ghost button-sm"
+                            onClick={exportTotalUsersCSV}
+                            disabled={totals.userTotals.length === 0}
+                        >
+                            📥 Export User Totals
+                        </button>
+                        <button
+                            type="button"
+                            className="button button-ghost button-sm"
+                            onClick={exportTotalMatrixCSV}
+                            disabled={totals.sessionMatrix.length === 0}
+                        >
+                            📥 Export Session Matrix
+                        </button>
+                    </div>
+                ) : null}
             </div>
 
             {/* ── Duty Table ── */}
@@ -339,6 +465,83 @@ export default function AdminHistoryPage() {
                         </tbody>
                     </table>
                 </article>
+            ) : null}
+
+            {/* ── Total Tab ── */}
+            {tab === 'total' ? (
+                <>
+                    <article className="card table-wrap">
+                        <h3 style={{ marginTop: 0 }}>Per-user Totals</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Team</th>
+                                    <th>Total Duty Sessions</th>
+                                    <th>Total Breaks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {totals.userTotals.map((row) => (
+                                    <tr key={row.userId}>
+                                        <td>{row.displayName}</td>
+                                        <td className="mono">@{row.username}</td>
+                                        <td><span className="tag">{row.role}</span></td>
+                                        <td>{row.teamName}</td>
+                                        <td>{row.totalDutySessions}</td>
+                                        <td>{row.totalBreaks}</td>
+                                    </tr>
+                                ))}
+                                {totals.userTotals.length === 0 ? (
+                                    <tr><td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>No totals found for this period</td></tr>
+                                ) : null}
+                            </tbody>
+                        </table>
+                    </article>
+
+                    <article className="card table-wrap" style={{ marginTop: '0.9rem' }}>
+                        <h3 style={{ marginTop: 0 }}>Duty Session + 6 Break Matrix</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Employee</th>
+                                    <th>Group</th>
+                                    <th>Status</th>
+                                    <th>WC</th>
+                                    <th>CY</th>
+                                    <th>BWC</th>
+                                    <th>CF+1</th>
+                                    <th>CF+2</th>
+                                    <th>CF+3</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {totals.sessionMatrix.map((row) => (
+                                    <tr key={row.sessionId}>
+                                        <td className="mono">{row.localDate}</td>
+                                        <td>{row.user.displayName}</td>
+                                        <td>{row.team?.name ? <span className="tag brand">{row.team.name}</span> : <span className="tag">No Team</span>}</td>
+                                        <td><span className={`tag ${row.status === 'ACTIVE' ? 'ok' : ''}`}>{row.status}</span></td>
+                                        <td>{row.breakCounts.wc}</td>
+                                        <td>{row.breakCounts.cy}</td>
+                                        <td>{row.breakCounts.bwc}</td>
+                                        <td>{row.breakCounts.cfPlus1}</td>
+                                        <td>{row.breakCounts.cfPlus2}</td>
+                                        <td>{row.breakCounts.cfPlus3}</td>
+                                        <td><strong>{row.sessionTotalBreaks}</strong></td>
+                                    </tr>
+                                ))}
+                                {totals.sessionMatrix.length === 0 ? (
+                                    <tr><td colSpan={11} style={{ color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>No duty sessions found for this period</td></tr>
+                                ) : null}
+                            </tbody>
+                        </table>
+                    </article>
+                </>
             ) : null}
         </AppShell>
     );
