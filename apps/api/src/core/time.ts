@@ -69,3 +69,10 @@ export function minutesNowInZone(date: Date, timeZone: string): number {
 export function localDateTime(dateStr: string, timeStr: string): string {
   return `${dateStr}T${timeStr}`;
 }
+
+export function localMinuteStampInZone(date: Date, timeZone: string): number {
+  const p = getTimePartsInZone(date, timeZone);
+  return Math.floor(
+    Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) / 60000,
+  );
+}

@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { BreakSessionStatus, DutySessionStatus, Role } from "@prisma/client";
+import { localMinuteStampInZone } from "../core";
 import { DeductionsService } from "../deductions/deductions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportsService } from "../reports/reports.service";
@@ -101,7 +102,7 @@ export class JobsService {
     autoClosed: number;
   }> {
     const now = new Date();
-    const graceMinutes = Number(process.env.BREAK_GRACE_MINUTES || 5);
+    const timezone = process.env.APP_TIMEZONE || "Asia/Dubai";
 
     const activeBreaks = await this.prisma.breakSession.findMany({
       where: {
@@ -117,13 +118,11 @@ export class JobsService {
     for (const breakSession of activeBreaks) {
       const elapsedMinutes = Math.max(
         0,
-        Math.round((now.getTime() - breakSession.startedAt.getTime()) / 60000),
+        localMinuteStampInZone(now, timezone) -
+          localMinuteStampInZone(breakSession.startedAt, timezone),
       );
 
-      if (
-        elapsedMinutes <=
-        breakSession.expectedDurationMinutes + graceMinutes
-      ) {
+      if (elapsedMinutes <= breakSession.expectedDurationMinutes) {
         continue;
       }
 
@@ -162,7 +161,6 @@ export class JobsService {
             code: breakSession.breakPolicy.code,
             expectedDuration: breakSession.expectedDurationMinutes,
             actualMinutes: elapsedMinutes,
-            graceMinutes,
           },
         },
       });

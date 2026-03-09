@@ -3,8 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { BreakSessionStatus, DutySessionStatus, User } from "@prisma/client";
-import { formatDateInZone, resolveEventTime, serializeEventTime } from "../core";
+import { BreakSessionStatus, DutySessionStatus, Prisma, User } from "@prisma/client";
+import {
+  formatDateInZone,
+  localMinuteStampInZone,
+  resolveEventTime,
+  serializeEventTime,
+} from "../core";
 import { DeductionsService } from "../deductions/deductions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateBreakPolicyDto } from "./dto/create-break-policy.dto";
@@ -229,21 +234,29 @@ export class BreaksService {
     // Soft limit: allow override but flag it
     const isOverLimit = usedCount >= policy.dailyLimit;
 
-    const created = await this.prisma.breakSession.create({
-      data: {
-        userId: user.id,
-        dutySessionId: activeDuty.id,
-        breakPolicyId: policy.id,
-        localDate,
-        startedAt: now,
-        expectedDurationMinutes: policy.expectedDurationMinutes,
-        status: BreakSessionStatus.ACTIVE,
-        createdById: user.id,
-      },
-      include: {
-        breakPolicy: true,
-      },
-    });
+    let created;
+    try {
+      created = await this.prisma.breakSession.create({
+        data: {
+          userId: user.id,
+          dutySessionId: activeDuty.id,
+          breakPolicyId: policy.id,
+          localDate,
+          startedAt: now,
+          expectedDurationMinutes: policy.expectedDurationMinutes,
+          status: BreakSessionStatus.ACTIVE,
+          createdById: user.id,
+        },
+        include: {
+          breakPolicy: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new BadRequestException("You already have an active break");
+      }
+      throw error;
+    }
 
     this.prisma.auditEvent.create({
       data: {
@@ -311,9 +324,11 @@ export class BreaksService {
         : "BREAK_END_BEFORE_START_CLAMPED";
     }
 
+    const timezone = process.env.APP_TIMEZONE || "Asia/Dubai";
     const actualMinutes = Math.max(
       0,
-      Math.round((endedAt.getTime() - activeBreak.startedAt.getTime()) / 60000),
+      localMinuteStampInZone(endedAt, timezone) -
+        localMinuteStampInZone(activeBreak.startedAt, timezone),
     );
     const isOvertime = actualMinutes > activeBreak.expectedDurationMinutes;
 
