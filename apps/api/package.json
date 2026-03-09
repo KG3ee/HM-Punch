@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "npm run build --prefix ../../packages/core && npm run prisma:generate",
     "dev": "node \"$(npm root)/typescript/bin/tsc\" -p tsconfig.json && node dist/main.js",
     "build": "npm run build --prefix ../../packages/core && npm run prisma:migrate:deploy:if-vercel && npm run prisma:generate && node \"$(npm root)/typescript/bin/tsc\" -p tsconfig.build.json",
     "start": "node dist/main.js",
@@ -21,7 +22,7 @@
     "test:e2e": "node \"$(npm root)/jest/bin/jest.js\" --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@modern-punch/core": "*",
+    "@modern-punch/core": "file:../../packages/core",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",

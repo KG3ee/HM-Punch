@@ -77,20 +77,29 @@ export class AttendanceService {
       scheduledStartLocal = resolvedShift.segment.scheduleStartLocal;
       scheduledEndLocal = resolvedShift.segment.scheduleEndLocal;
 
-      let effectiveStartStamp = this.localMinuteStamp(scheduledStartLocal);
+      if (!scheduledStartLocal) {
+        isLate = false;
+        lateMinutes = 0;
+      } else {
+        let effectiveStartStamp = this.localMinuteStamp(scheduledStartLocal);
 
-      if (dayOffRequest?.requestType === "HALF_DAY_MORNING" && scheduledEndLocal) {
-        // Morning off: expected start = midpoint of the shift
-        const endStamp = this.localMinuteStamp(scheduledEndLocal);
-        let duration = endStamp - effectiveStartStamp;
-        if (duration <= 0) duration += 24 * 60; // handle cross-midnight
-        effectiveStartStamp = effectiveStartStamp + Math.floor(duration / 2);
+        if (
+          dayOffRequest?.requestType === "HALF_DAY_MORNING" &&
+          scheduledEndLocal
+        ) {
+          // Morning off: expected start = midpoint of the shift
+          const endStamp = this.localMinuteStamp(scheduledEndLocal);
+          let duration = endStamp - effectiveStartStamp;
+          if (duration <= 0) duration += 24 * 60; // handle cross-midnight
+          effectiveStartStamp = effectiveStartStamp + Math.floor(duration / 2);
+        }
+
+        const nowStamp = this.localMinuteStampFromDate(now, timezone);
+        const rawLate =
+          nowStamp - effectiveStartStamp - resolvedShift.segment.lateGraceMinutes;
+        lateMinutes = Math.min(this.maxLateMinutes(), Math.max(0, rawLate));
+        isLate = lateMinutes > 0;
       }
-
-      const nowStamp = this.localMinuteStampFromDate(now, timezone);
-      const rawLate = nowStamp - effectiveStartStamp - resolvedShift.segment.lateGraceMinutes;
-      lateMinutes = Math.min(this.maxLateMinutes(), Math.max(0, rawLate));
-      isLate = lateMinutes > 0;
     } else if (user.teamId) {
       const team = await this.prisma.team.findUnique({
         where: { id: user.teamId },

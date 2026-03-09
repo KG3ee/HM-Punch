@@ -11,11 +11,14 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@modern-punch/core": ["../../packages/core/src/index.ts"]
+    },
     "incremental": true,
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }
