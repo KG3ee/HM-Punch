@@ -152,14 +152,18 @@ export default function DriverDashboardPage() {
     <button
       type="button"
       className="button button-ghost button-sm"
-      style={{ position: 'relative', fontSize: '1.1rem', padding: '0.25rem 0.5rem' }}
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.6rem' }}
       title={`${available.length} trip${available.length !== 1 ? 's' : ''} available`}
+      aria-label={`${available.length} trip${available.length !== 1 ? 's' : ''} available`}
       onClick={() => availableSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 7h13l5 5v5a2 2 0 0 1-2 2h-1a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H2v-5a2 2 0 0 1 1-1.73L3 7Z" />
+        <circle cx="6" cy="19" r="1" />
+        <circle cx="15" cy="19" r="1" />
+        <path d="M3 11h12" />
       </svg>
+      <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trips</span>
       {available.length > 0 && (
         <span style={{
           position: 'absolute', top: -2, right: -2,

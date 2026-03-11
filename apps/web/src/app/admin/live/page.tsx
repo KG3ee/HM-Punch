@@ -241,6 +241,8 @@ export default function AdminLivePage() {
   const [observedReason, setObservedReason] = useState<ViolationReason>('LEFT_WITHOUT_PUNCH');
   const [observedNote, setObservedNote] = useState('');
   const [violationActionId, setViolationActionId] = useState<string | null>(null);
+  const [showActiveSessions, setShowActiveSessions] = useState(true);
+  const [showTodayBreakHistory, setShowTodayBreakHistory] = useState(true);
 
   /* ── Personal duty/break state ── */
   const [sessions, setSessions] = useState<DutySession[]>([]);
@@ -839,56 +841,61 @@ export default function AdminLivePage() {
 
         {/* ═══ Active Sessions ═══ */}
         <section className="dash-section">
-          <h2 className="dash-section-title">🟢 Active Sessions</h2>
-          <article className="card">
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Group</th>
-                    <th>Role</th>
-                    <th>Punched On</th>
-                    <th>Late</th>
-                    <th>Break</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data?.activeDutySessions.map((session) => (
-                    <tr key={session.id}>
-                      <td>
-                        <AvatarName
-                          displayName={session.user.displayName}
-                          profilePhotoUrl={session.user.profilePhotoUrl}
-                          subtitle={session.user.role || null}
-                        />
-                      </td>
-                      <td>{session.team?.name ? <span className="tag brand">{session.team.name}</span> : <span className="tag">Service</span>}</td>
-                      <td>{session.user.role ? <span className={`tag role-${session.user.role.toLowerCase()}`}>{session.user.role}</span> : '—'}</td>
-                      <td className="mono">{fmtTime(session.punchedOnAt)}</td>
-                      <td>
-                        {session.lateMinutes > 0 ? (
-                          <span className="tag danger">{session.lateMinutes}m</span>
-                        ) : (
-                          <span className="tag ok">OK</span>
-                        )}
-                      </td>
-                      <td>
-                        {session.breakSessions.length > 0 ? (
-                          <span className="tag warning">
-                            {session.breakSessions[0].breakPolicy.code.toUpperCase()} · {fmtTime(session.breakSessions[0].startedAt)}
-                          </span>
-                        ) : '—'}
-                      </td>
+          <div className="dash-collapse-header" onClick={() => setShowActiveSessions((v) => !v)}>
+            <h2 className="dash-section-title" style={{ marginBottom: 0 }}>🟢 Active Sessions</h2>
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{showActiveSessions ? '▲ Hide' : '▼ Show'}</span>
+          </div>
+          {showActiveSessions ? (
+            <article className="card">
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Group</th>
+                      <th>Role</th>
+                      <th>Punched On</th>
+                      <th>Late</th>
+                      <th>Break</th>
                     </tr>
-                  ))}
-                  {!data?.activeDutySessions.length ? (
-                    <tr><td colSpan={6} className="table-empty">No active sessions</td></tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </article>
+                  </thead>
+                  <tbody>
+                    {data?.activeDutySessions.map((session) => (
+                      <tr key={session.id}>
+                        <td>
+                          <AvatarName
+                            displayName={session.user.displayName}
+                            profilePhotoUrl={session.user.profilePhotoUrl}
+                            subtitle={session.user.role || null}
+                          />
+                        </td>
+                        <td>{session.team?.name ? <span className="tag brand">{session.team.name}</span> : <span className="tag">Service</span>}</td>
+                        <td>{session.user.role ? <span className={`tag role-${session.user.role.toLowerCase()}`}>{session.user.role}</span> : '—'}</td>
+                        <td className="mono">{fmtTime(session.punchedOnAt)}</td>
+                        <td>
+                          {session.lateMinutes > 0 ? (
+                            <span className="tag danger">{session.lateMinutes}m</span>
+                          ) : (
+                            <span className="tag ok">OK</span>
+                          )}
+                        </td>
+                        <td>
+                          {session.breakSessions.length > 0 ? (
+                            <span className="tag warning">
+                              {session.breakSessions[0].breakPolicy.code.toUpperCase()} · {fmtTime(session.breakSessions[0].startedAt)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                    {!data?.activeDutySessions.length ? (
+                      <tr><td colSpan={6} className="table-empty">No active sessions</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          ) : null}
         </section>
 
         <section className="dash-section">
@@ -959,52 +966,57 @@ export default function AdminLivePage() {
 
         {/* ═══ Break History ═══ */}
         <section className="dash-section">
-          <h2 className="dash-section-title">☕ Today Break History</h2>
-          <article className="card">
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Group</th>
-                    <th>Code</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Min</th>
-                    <th>Status</th>
-                    <th>OT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breakHistory.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <AvatarName
-                          displayName={item.user.displayName}
-                          profilePhotoUrl={item.user.profilePhotoUrl}
-                          subtitle={item.user.team?.name || null}
-                        />
-                      </td>
-                      <td>{item.user.team?.name ? <span className="tag brand">{item.user.team.name}</span> : '—'}</td>
-                      <td><span className="tag">{item.breakPolicy.code.toUpperCase()}</span></td>
-                      <td className="mono">{fmtTime(item.startedAt)}</td>
-                      <td className="mono">{item.endedAt ? fmtTime(item.endedAt) : '—'}</td>
-                      <td>{formatHistoryMinutes(item)}</td>
-                      <td>
-                        <span className={`tag ${item.status === 'ACTIVE' ? 'ok' : item.status === 'CANCELLED' ? 'danger' : ''}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td>{item.isOvertime ? <span className="tag warning">Yes</span> : '—'}</td>
+          <div className="dash-collapse-header" onClick={() => setShowTodayBreakHistory((v) => !v)}>
+            <h2 className="dash-section-title" style={{ marginBottom: 0 }}>☕ Today Break History</h2>
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{showTodayBreakHistory ? '▲ Hide' : '▼ Show'}</span>
+          </div>
+          {showTodayBreakHistory ? (
+            <article className="card">
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Group</th>
+                      <th>Code</th>
+                      <th>Start</th>
+                      <th>End</th>
+                      <th>Min</th>
+                      <th>Status</th>
+                      <th>OT</th>
                     </tr>
-                  ))}
-                  {breakHistory.length === 0 ? (
-                    <tr><td colSpan={8} className="table-empty">No breaks today</td></tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </article>
+                  </thead>
+                  <tbody>
+                    {breakHistory.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <AvatarName
+                            displayName={item.user.displayName}
+                            profilePhotoUrl={item.user.profilePhotoUrl}
+                            subtitle={item.user.team?.name || null}
+                          />
+                        </td>
+                        <td>{item.user.team?.name ? <span className="tag brand">{item.user.team.name}</span> : '—'}</td>
+                        <td><span className="tag">{item.breakPolicy.code.toUpperCase()}</span></td>
+                        <td className="mono">{fmtTime(item.startedAt)}</td>
+                        <td className="mono">{item.endedAt ? fmtTime(item.endedAt) : '—'}</td>
+                        <td>{formatHistoryMinutes(item)}</td>
+                        <td>
+                          <span className={`tag ${item.status === 'ACTIVE' ? 'ok' : item.status === 'CANCELLED' ? 'danger' : ''}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td>{item.isOvertime ? <span className="tag warning">Yes</span> : '—'}</td>
+                      </tr>
+                    ))}
+                    {breakHistory.length === 0 ? (
+                      <tr><td colSpan={8} className="table-empty">No breaks today</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          ) : null}
         </section>
 
         {shortcutConfirmPolicy ? (
