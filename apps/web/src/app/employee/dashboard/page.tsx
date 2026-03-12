@@ -432,6 +432,7 @@ export default function EmployeeDashboardPage() {
     const startedAt = new Date(activeBreak.startedAt).getTime();
     return Math.max(0, Math.round((nowTick - startedAt) / 60000));
   }, [activeBreak, nowTick]);
+  const canCancelActiveBreak = !!activeBreak && activeBreakMinutes < 2;
 
   const canStartBreak = useMemo(() => {
     const breakUiEnabled = me?.role !== 'MAID' && me?.role !== 'CHEF';
@@ -555,7 +556,7 @@ export default function EmployeeDashboardPage() {
       if (e.code === 'Space') {
         e.preventDefault();
         void runAction('/breaks/end', getActiveBreakSyncFields());
-      } else if (e.code === 'Escape' && activeBreak && (Date.now() - new Date(activeBreak.startedAt).getTime()) < 120000) {
+      } else if (e.code === 'Escape' && canCancelActiveBreak) {
         e.preventDefault();
         void runAction('/breaks/cancel', getActiveBreakSyncFields());
       }
@@ -564,7 +565,7 @@ export default function EmployeeDashboardPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBreak, loading, shortcutConfirmPolicy]);
+  }, [activeBreak, canCancelActiveBreak, loading, shortcutConfirmPolicy]);
 
   // Keyboard shortcuts to start break (b/w/c/1/2/3) with confirmation modal
   useEffect(() => {
@@ -1561,7 +1562,7 @@ export default function EmployeeDashboardPage() {
                         <button className="button button-ok button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/end', getActiveBreakSyncFields())} title="Space bar">
                           End <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>␣</kbd>
                         </button>
-                        {activeBreakMinutes < 2 ? (
+                        {canCancelActiveBreak ? (
                           <button className="button button-danger button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/cancel', getActiveBreakSyncFields())} title="Escape">
                             Cancel <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>Esc</kbd>
                           </button>

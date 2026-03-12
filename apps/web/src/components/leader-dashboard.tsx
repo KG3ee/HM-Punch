@@ -527,6 +527,8 @@ export function LeaderDashboard({
     setShowObservedModal(true);
   }
 
+  const canCancelActiveBreak = !!activeBreak && activeBreakMinutes < 2;
+
   function openBreakStartConfirm(policy: BreakPolicy): void {
     setShortcutConfirmPolicy(policy);
   }
@@ -555,15 +557,13 @@ export function LeaderDashboard({
   // Keyboard shortcuts while break is active: Space => End break, Esc => Cancel break (within 2 min)
   useEffect(() => {
     if (!activeBreak) return;
-    const activeBreakStartedAt = activeBreak.startedAt;
-
     function handleKeyDown(e: KeyboardEvent) {
       if (shortcutConfirmPolicy || isTypingTarget(e.target)) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
         void runAction('/breaks/end');
-      } else if (e.code === 'Escape' && (Date.now() - new Date(activeBreakStartedAt).getTime()) < 120000) {
+      } else if (e.code === 'Escape' && canCancelActiveBreak) {
         e.preventDefault();
         void runAction('/breaks/cancel');
       }
@@ -571,7 +571,7 @@ export function LeaderDashboard({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeBreak, runAction, shortcutConfirmPolicy]);
+  }, [activeBreak, canCancelActiveBreak, runAction, shortcutConfirmPolicy]);
 
   // Keyboard shortcuts to start break (b/w/c/1/2/3) with confirmation modal
   useEffect(() => {
@@ -685,7 +685,7 @@ export function LeaderDashboard({
               <button className="button button-ok button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/end')}>
                 End <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>␣</kbd>
               </button>
-              {activeBreakMinutes < 2 ? (
+              {canCancelActiveBreak ? (
                 <button className="button button-danger button-sm" disabled={loading && !isOffline} onClick={() => void runAction('/breaks/cancel')}>
                   Cancel <kbd style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '0.2rem', padding: '0.1rem 0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: '3px' }}>Esc</kbd>
                 </button>
