@@ -11,3 +11,7 @@ node_modules/
 coverage/
 **/*.tsbuildinfo
 backups/
+.vercel/
+deploy/hostinger/*.env
+deploy/hostinger/caddy/data/
+deploy/hostinger/caddy/config/

@@ -120,6 +120,14 @@ This repo is set up for two Vercel projects (`apps/api` and `apps/web`) plus Neo
    - `WEB_PUSH_VAPID_PRIVATE_KEY`
    - `WEB_PUSH_VAPID_SUBJECT` (example: `mailto:admin@yourdomain.com`)
 
+## Deployment (Hostinger VPS)
+For a flat-cost VPS deployment with Docker Compose, see:
+
+- `/Users/kyawlaymyint/Desktop/ON:OFF/modern-punch/docs/HOSTINGER_VPS_MIGRATION.md`
+- `/Users/kyawlaymyint/Desktop/ON:OFF/modern-punch/deploy/hostinger/docker-compose.yml`
+
+This path keeps Supabase as the database and moves only the app hosting from Vercel to your VPS.
+
 ### 3) Web Project (`apps/web`)
 1. Import same repo in Vercel, root directory `apps/web`.
 2. Required web env vars:
