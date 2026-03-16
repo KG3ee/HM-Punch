@@ -9,7 +9,7 @@ type DutySession = {
   status: 'ACTIVE' | 'CLOSED' | 'CANCELLED';
 };
 
-export function AdminPunchWidget() {
+export function PunchWidget() {
   const [sessions, setSessions] = useState<DutySession[]>([]);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
