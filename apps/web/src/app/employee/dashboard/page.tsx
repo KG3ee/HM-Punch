@@ -1291,6 +1291,47 @@ export default function EmployeeDashboardPage() {
         />
       ) : (
         <>
+          {/* ── Mobile punch card (Driver / Maid / Chef on phone) ── */}
+          {(me?.role === 'DRIVER' || me?.role === 'MAID' || me?.role === 'CHEF') ? (
+            <article className="card punch-card-mobile">
+              <div className={`punch-mobile-status${activeSession ? ' on-duty' : ''}`}>
+                <span className={`status-dot ${activeSession ? 'active' : 'inactive'}`} />
+                {activeSession
+                  ? `On Duty · ${fmtDuration(activeDutyMinutes)}`
+                  : 'Off Duty'}
+              </div>
+              {activeSession ? (
+                <button
+                  type="button"
+                  className="button button-danger"
+                  disabled={loading}
+                  onClick={() => {
+                    const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    if (window.confirm(`Punch OFF confirmation\n\nActual recorded time will be ${timeLabel}.\n\nDo you want to continue?`)) {
+                      void runAction('/attendance/off', {});
+                    }
+                  }}
+                >
+                  ⏹ Punch OFF
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-ok"
+                  disabled={loading}
+                  onClick={() => {
+                    const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    if (window.confirm(`Punch ON confirmation\n\nActual recorded time will be ${timeLabel}.\n\nDo you want to continue?`)) {
+                      void runAction('/attendance/on', {});
+                    }
+                  }}
+                >
+                  ▶ Punch ON
+                </button>
+              )}
+            </article>
+          ) : null}
+
           {/* ── Monthly KPI Row (non-Leader) ── */}
           {monthlySummary && me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
             <section className="kpi-grid">
