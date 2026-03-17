@@ -1355,7 +1355,7 @@ export default function EmployeeDashboardPage() {
           ) : null}
 
           {/* ── Today KPI Row (non-Leader) ── */}
-          <section className="kpi-grid">
+          <section className={`kpi-grid${me?.role === 'DRIVER' || me?.role === 'MAID' || me?.role === 'CHEF' ? ' kpi-mobile-first' : ''}`}>
             <article className="kpi">
               <p className="kpi-label">Sessions</p>
               <p className="kpi-value">{sessions.length}</p>
