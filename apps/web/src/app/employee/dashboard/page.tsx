@@ -1421,7 +1421,7 @@ export default function EmployeeDashboardPage() {
                       className="slide-track"
                       style={{
                         position: 'relative',
-                        height: `${MEAL_THUMB_SIZE}px`,
+                        minHeight: `${MEAL_THUMB_SIZE}px`,
                         borderRadius: `${MEAL_THUMB_SIZE / 2}px`,
                         background: mealSent
                           ? 'var(--ok)'
@@ -1459,6 +1459,8 @@ export default function EmployeeDashboardPage() {
                           left: 3 + mealSlideX,
                           width: MEAL_THUMB_SIZE - 6,
                           height: MEAL_THUMB_SIZE - 6,
+                          minWidth: `${MEAL_THUMB_SIZE}px`,
+                          minHeight: `${MEAL_THUMB_SIZE}px`,
                           borderRadius: '50%',
                           background: mealSent ? '#fff' : 'var(--brand)',
                           display: 'flex',
