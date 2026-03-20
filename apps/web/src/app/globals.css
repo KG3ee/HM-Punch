@@ -1737,7 +1737,7 @@ main > .shell {
   z-index: 30;
   animation: fadeIn 120ms ease-out;
   overflow: hidden;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition);
 }
 
 .noti-dropdown.noti-closing {
@@ -1757,9 +1757,9 @@ main > .shell {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--muted);
-  padding: 0.15rem 0.35rem;
+  padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   transition: color var(--transition), background var(--transition);
   white-space: nowrap;
