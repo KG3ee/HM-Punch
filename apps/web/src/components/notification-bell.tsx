@@ -85,9 +85,9 @@ export function NotificationBell() {
 
   const openBell = async () => {
     setOpen(true);
-    await Promise.all([refreshList(), markAllNotificationsRead().catch(() => undefined)]);
+    await markAllNotificationsRead().catch(() => undefined);
+    await refreshList();
     setUnreadCount(0);
-    setItems((prev) => prev.map((item) => ({ ...item, isRead: true, readAt: item.readAt || new Date().toISOString() })));
   };
 
   const toggleBell = () => {
