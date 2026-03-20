@@ -290,6 +290,7 @@ export default function EmployeeDashboardPage() {
   const [serverTimeZone, setServerTimeZone] = useState('');
   const [shortcutConfirmPolicy, setShortcutConfirmPolicy] = useState<BreakPolicy | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notiClosing, setNotiClosing] = useState(false);
   const [serverNotifications, setServerNotifications] = useState<UserNotification[]>([]);
   const [serverUnreadCount, setServerUnreadCount] = useState(0);
   const [publicLiveSessions, setPublicLiveSessions] = useState<PublicLiveSession[]>([]);
@@ -299,6 +300,8 @@ export default function EmployeeDashboardPage() {
   const [violationNote, setViolationNote] = useState('');
   const [violationSubmitting, setViolationSubmitting] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const notiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notiFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settledActionIdsRef = useRef<Set<string>>(new Set());
   const toastTimerRef = useRef<number | null>(null);
 
@@ -323,13 +326,38 @@ export default function EmployeeDashboardPage() {
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);
       }
+      if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
+      if (notiFadeTimerRef.current) clearTimeout(notiFadeTimerRef.current);
     };
   }, []);
+
+  const startNotiFade = () => {
+    if (notiTimerRef.current) { clearTimeout(notiTimerRef.current); notiTimerRef.current = null; }
+    if (notiFadeTimerRef.current) { clearTimeout(notiFadeTimerRef.current); notiFadeTimerRef.current = null; }
+    setNotiClosing(true);
+    notiFadeTimerRef.current = setTimeout(() => {
+      setNotificationsOpen(false);
+      setNotiClosing(false);
+      notiFadeTimerRef.current = null;
+    }, 120);
+  };
+
+  const pauseNotiTimer = () => {
+    if (notiTimerRef.current) { clearTimeout(notiTimerRef.current); notiTimerRef.current = null; }
+  };
+
+  const resumeNotiTimer = () => {
+    if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
+    notiTimerRef.current = setTimeout(() => startNotiFade(), 4000);
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        if (notiTimerRef.current) { clearTimeout(notiTimerRef.current); notiTimerRef.current = null; }
+        if (notiFadeTimerRef.current) { clearTimeout(notiFadeTimerRef.current); notiFadeTimerRef.current = null; }
         setNotificationsOpen(false);
+        setNotiClosing(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -900,11 +928,14 @@ export default function EmployeeDashboardPage() {
   useEffect(() => {
     if (error || actionMessage) {
       setNotificationsOpen(true);
+      setNotiClosing(false);
       if (actionMessage && !error) {
-        const t = setTimeout(() => setNotificationsOpen(false), 4000);
-        return () => clearTimeout(t);
+        if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
+        notiTimerRef.current = setTimeout(() => startNotiFade(), 4000);
+        return () => { if (notiTimerRef.current) clearTimeout(notiTimerRef.current); };
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error, actionMessage]);
 
   const [mealSlideX, setMealSlideX] = useState(0);
@@ -1153,11 +1184,17 @@ export default function EmployeeDashboardPage() {
         type="button"
         className={`noti-bell${isOffline ? ' noti-bell-offline' : ''}`}
         onClick={() => {
-          const opening = !notificationsOpen;
-          setNotificationsOpen(opening);
-          if (opening) {
-            void markRequestsSeen();
+          if (notificationsOpen) {
+            if (notiTimerRef.current) { clearTimeout(notiTimerRef.current); notiTimerRef.current = null; }
+            setNotificationsOpen(false);
+            setNotiClosing(false);
+            return;
           }
+          setNotificationsOpen(true);
+          setNotiClosing(false);
+          if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
+          notiTimerRef.current = setTimeout(() => startNotiFade(), 4000);
+          void markRequestsSeen();
         }}
         title={isOffline ? 'No internet connection' : 'Notifications'}
       >
@@ -1181,13 +1218,32 @@ export default function EmployeeDashboardPage() {
           <span className="noti-badge">{notificationBadgeCount}</span>
         )}
       </button>
-      {notificationsOpen && (
-        <div className="noti-dropdown">
+      {(notificationsOpen || notiClosing) && (
+        <div
+          className={`noti-dropdown${notiClosing ? ' noti-closing' : ''}`}
+          onMouseEnter={pauseNotiTimer}
+          onMouseLeave={resumeNotiTimer}
+        >
           <div className="noti-dropdown-header">
             <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>Notifications</span>
-            {notifications.length > 0 && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{notifications.length} active</span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  className="noti-clear-btn"
+                  onClick={() => {
+                    void markRequestsSeen();
+                    if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
+                    notiTimerRef.current = setTimeout(() => startNotiFade(), 1000);
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{notifications.length} active</span>
+              )}
+            </div>
           </div>
           {notifications.length === 0 ? (
             <div className="noti-empty">All clear — no notifications</div>
@@ -1198,7 +1254,7 @@ export default function EmployeeDashboardPage() {
                   key={n.id}
                   className={`noti-item noti-item-${n.type}`}
                   style={n.link ? { cursor: 'pointer' } : undefined}
-                  onClick={n.link ? () => { setNotificationsOpen(false); router.push(n.link!); } : undefined}
+                  onClick={n.link ? () => { startNotiFade(); router.push(n.link!); } : undefined}
                 >
                   <div className="noti-dot" />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1211,7 +1267,7 @@ export default function EmployeeDashboardPage() {
                         <button type="button" className="button button-ghost button-sm" style={{ fontSize: '0.75rem' }} onClick={retryFailedQueueActions}>
                           Retry
                         </button>
-                        <button type="button" className="button button-ghost button-sm" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} onClick={() => { dismissFailedActions(); setNotificationsOpen(false); }}>
+                        <button type="button" className="button button-ghost button-sm" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} onClick={() => { dismissFailedActions(); startNotiFade(); }}>
                           Dismiss
                         </button>
                       </div>
