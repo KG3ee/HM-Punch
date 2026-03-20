@@ -34,6 +34,9 @@ export function NotificationBell() {
   const [items, setItems] = useState<UserNotification[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const openRef = useRef(false);
+  const [closing, setClosing] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const refreshUnread = async () => {
@@ -55,6 +58,30 @@ export function NotificationBell() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const startFade = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setClosing(true);
+    setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 120);
+  };
+
+  const pauseTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const resumeTimer = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => startFade(), 4000);
   };
 
   // Keep openRef in sync so the polling interval can check it without
@@ -91,18 +118,32 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const openBell = async () => {
-    // Optimistically zero the badge before any async work so the
-    // polling interval cannot race and restore the old count.
     setOpen(true);
+    setClosing(false);
     setUnreadCount(0);
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => startFade(), 4000);
+
     await markAllNotificationsRead().catch(() => undefined);
     await refreshList();
   };
 
   const toggleBell = () => {
     if (open) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       setOpen(false);
+      setClosing(false);
       return;
     }
     void openBell();
@@ -119,10 +160,25 @@ export function NotificationBell() {
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
 
-    setOpen(false);
+    startFade();
     if (item.link) {
       router.push(item.link);
     }
+  };
+
+  const handleClearAll = async () => {
+    setClearing(true);
+    setUnreadCount(0);
+    setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    try {
+      await markAllNotificationsRead();
+    } catch {
+      // optimistic update already applied; silent fail
+    } finally {
+      setClearing(false);
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => startFade(), 1000);
   };
 
   return (
@@ -144,10 +200,28 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="noti-dropdown" role="menu" aria-label="Notifications">
+        <div
+          className={`noti-dropdown${closing ? ' noti-closing' : ''}`}
+          role="menu"
+          aria-label="Notifications"
+          onMouseEnter={pauseTimer}
+          onMouseLeave={resumeTimer}
+        >
           <div className="noti-dropdown-header">
             <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>Notifications</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{items.length} total</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="noti-clear-btn"
+                  onClick={() => void handleClearAll()}
+                  disabled={clearing}
+                >
+                  {clearing ? 'Clearing…' : 'Clear all'}
+                </button>
+              )}
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{items.length} total</span>
+            </div>
           </div>
 
           {loading ? (
