@@ -170,6 +170,10 @@ export function NotificationBell() {
     setClearing(true);
     setUnreadCount(0);
     setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    // Start the 1s fade timer immediately so the countdown begins the
+    // moment the user sees items dim — not after the network call.
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => startFade(), 1000);
     try {
       await markAllNotificationsRead();
     } catch {
@@ -177,8 +181,6 @@ export function NotificationBell() {
     } finally {
       setClearing(false);
     }
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => startFade(), 1000);
   };
 
   return (
