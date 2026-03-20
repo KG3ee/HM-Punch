@@ -37,6 +37,7 @@ export function NotificationBell() {
   const [closing, setClosing] = useState(false);
   const [clearing, setClearing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const refreshUnread = async () => {
@@ -65,10 +66,15 @@ export function NotificationBell() {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (fadeTimerRef.current) {
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
     setClosing(true);
-    setTimeout(() => {
+    fadeTimerRef.current = setTimeout(() => {
       setOpen(false);
       setClosing(false);
+      fadeTimerRef.current = null;
     }, 120);
   };
 
@@ -111,7 +117,10 @@ export function NotificationBell() {
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
+        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+        if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
         setOpen(false);
+        setClosing(false);
       }
     };
     document.addEventListener('mousedown', onClick);
@@ -121,6 +130,7 @@ export function NotificationBell() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     };
   }, []);
 
