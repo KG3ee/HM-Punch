@@ -1154,6 +1154,7 @@ export default function EmployeeDashboardPage() {
       list.push({ id: u.id, type: t, text: u.label, link: '/employee/requests' });
     }
     for (const n of serverNotifications) {
+      if (n.isRead) continue;
       const t = n.priority === 'URGENT' ? 'error' : n.priority === 'HIGH' ? 'warning' : 'success';
       list.push({
         id: `server-${n.id}`,
@@ -1232,6 +1233,10 @@ export default function EmployeeDashboardPage() {
                   type="button"
                   className="noti-clear-btn"
                   onClick={() => {
+                    setError('');
+                    setActionMessage('');
+                    setWarningMessage('');
+                    dismissFailedActions();
                     void markRequestsSeen();
                     if (notiTimerRef.current) clearTimeout(notiTimerRef.current);
                     notiTimerRef.current = setTimeout(() => startNotiFade(), 1000);
