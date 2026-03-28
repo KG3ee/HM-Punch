@@ -158,89 +158,124 @@ export class UsersService {
   async deleteUser(id: string): Promise<void> {
     await this.ensureUser(id);
 
-    // Hard delete with cleanup of related records
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Anonymize Audit logs
-      await tx.auditEvent.updateMany({
-        where: { actorUserId: id },
-        data: { actorUserId: null },
-      });
+    try {
+      // Hard delete with cleanup of related records
+      await this.prisma.$transaction(async (tx) => {
+        // 1. Anonymize Audit logs
+        await tx.auditEvent.updateMany({
+          where: { actorUserId: id },
+          data: { actorUserId: null },
+        });
 
-      // 2. Anonymize approvals/reviews
-      await tx.registrationRequest.updateMany({
-        where: { reviewedById: id },
-        data: { reviewedById: null },
-      });
-      await tx.registrationRequest.updateMany({
-        where: { approvedUserId: id },
-        data: { approvedUserId: null },
-      });
+        // 2. Anonymize approvals/reviews
+        await tx.registrationRequest.updateMany({
+          where: { reviewedById: id },
+          data: { reviewedById: null },
+        });
+        await tx.registrationRequest.updateMany({
+          where: { approvedUserId: id },
+          data: { approvedUserId: null },
+        });
+        await tx.shiftChangeRequest.updateMany({
+          where: { reviewedById: id },
+          data: { reviewedById: null },
+        });
+        await tx.driverRequest.updateMany({
+          where: { driverId: id },
+          data: { driverId: null },
+        });
+        await tx.driverRequest.updateMany({
+          where: { reviewedById: id },
+          data: { reviewedById: null },
+        });
 
-      // 3. Anonymize reports
-      await tx.monthlyReport.updateMany({
-        where: { generatedById: id },
-        data: { generatedById: null },
-      });
+        // 3. Anonymize reports
+        await tx.monthlyReport.updateMany({
+          where: { generatedById: id },
+          data: { generatedById: null },
+        });
 
-      // 4. Anonymize session metadata (created/cancelled by this user)
-      await tx.breakSession.updateMany({
-        where: { createdById: id },
-        data: { createdById: null },
-      });
-      await tx.breakSession.updateMany({
-        where: { cancelledById: id },
-        data: { cancelledById: null },
-      });
-      await tx.dutySession.updateMany({
-        where: { createdById: id },
-        data: { createdById: null },
-      });
+        // 4. Anonymize session metadata (created/cancelled by this user)
+        await tx.breakSession.updateMany({
+          where: { createdById: id },
+          data: { createdById: null },
+        });
+        await tx.breakSession.updateMany({
+          where: { cancelledById: id },
+          data: { cancelledById: null },
+        });
+        await tx.dutySession.updateMany({
+          where: { createdById: id },
+          data: { createdById: null },
+        });
 
-      // 5. Violation workflow cleanup
-      await tx.violationPointEntry.updateMany({
-        where: { createdByUserId: id },
-        data: { createdByUserId: null },
-      });
-      await tx.violationPointEntry.deleteMany({
-        where: { userId: id },
-      });
-      await tx.violationCase.updateMany({
-        where: { leaderReviewedById: id },
-        data: { leaderReviewedById: null },
-      });
-      await tx.violationCase.updateMany({
-        where: { adminReviewedById: id },
-        data: { adminReviewedById: null },
-      });
-      await tx.violationCase.deleteMany({
-        where: {
-          OR: [
-            { accusedUserId: id },
-            { createdByUserId: id },
-          ],
-        },
-      });
+        // 5. Violation workflow cleanup
+        await tx.violationPointEntry.updateMany({
+          where: { createdByUserId: id },
+          data: { createdByUserId: null },
+        });
+        await tx.violationPointEntry.deleteMany({
+          where: { userId: id },
+        });
+        await tx.violationCase.updateMany({
+          where: { leaderReviewedById: id },
+          data: { leaderReviewedById: null },
+        });
+        await tx.violationCase.updateMany({
+          where: { adminReviewedById: id },
+          data: { adminReviewedById: null },
+        });
+        await tx.violationCase.deleteMany({
+          where: {
+            OR: [
+              { accusedUserId: id },
+              { createdByUserId: id },
+            ],
+          },
+        });
 
-      // 6. Delete Breaks (must be before DutySessions if linked)
-      await tx.breakSession.deleteMany({
-        where: { userId: id },
-      });
+        // 6. Delete user-owned request records
+        await tx.shiftChangeRequest.deleteMany({
+          where: { userId: id },
+        });
+        await tx.driverRequest.deleteMany({
+          where: { userId: id },
+        });
 
-      // 7. Delete DutySessions
-      await tx.dutySession.deleteMany({
-        where: { userId: id },
-      });
+        // 7. Delete Breaks (must be before DutySessions if linked)
+        await tx.breakSession.deleteMany({
+          where: { userId: id },
+        });
 
-      // 8. Delete Shift Assignments
-      await tx.shiftAssignment.deleteMany({
-        where: { targetType: "USER", targetId: id },
-      });
+        // 8. Delete DutySessions
+        await tx.dutySession.deleteMany({
+          where: { userId: id },
+        });
 
-      // 9. Delete User
-      await tx.user.delete({
-        where: { id },
+        // 9. Delete user-targeted shift configuration
+        await tx.shiftAssignment.deleteMany({
+          where: { targetType: "USER", targetId: id },
+        });
+        await tx.shiftOverride.deleteMany({
+          where: { targetType: "USER", targetId: id },
+        });
+
+        // 10. Delete User
+        await tx.user.delete({
+          where: { id },
+        });
       });
-    });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2003"
+      ) {
+        throw new BadRequestException(
+          "Cannot delete user because related records still exist.",
+        );
+      }
+      throw error;
+    }
   }
 
   async updateProfile(
