@@ -36,8 +36,16 @@ export class ChangePasswordDto {
   newPassword!: string;
 }
 
+const SAFE_DATA_IMAGE_PREFIX =
+  /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=\r\n]+$/i;
+
 function isValidPhotoUrl(url: string | undefined): boolean {
   if (!url) return true; // null/empty is allowed (removes photo)
+
+  if (SAFE_DATA_IMAGE_PREFIX.test(url.trim())) {
+    return true;
+  }
+
   try {
     const parsed = new URL(url);
     // Only allow http/https schemes to block javascript:/data: URIs
@@ -58,8 +66,9 @@ export class UpdateProfilePhotoDto {
   photoUrl?: string;
 
   /**
-   * Reject javascript:, data:, and other non-http(s) URL schemes to
-   * prevent stored XSS via profile image tags rendered by the browser.
+   * Accept trusted http(s) URLs and a small allow-list of raster image data URLs.
+   * This keeps the current client-side file picker working without permitting
+   * arbitrary data: URIs such as SVG/script payloads.
    */
   static isValid(value: string | undefined): boolean {
     return isValidPhotoUrl(value);

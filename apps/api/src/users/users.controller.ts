@@ -39,7 +39,7 @@ export class UsersController {
   @Post("me/profile-photo")
   async updateProfilePhoto(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfilePhotoDto) {
     if (dto.photoUrl !== undefined && !UpdateProfilePhotoDto.isValid(dto.photoUrl)) {
-      throw new BadRequestException("photoUrl must be a valid http(s) URL");
+      throw new BadRequestException("photoUrl must be a valid http(s) URL or supported image data URL");
     }
     return this.usersService.updateProfilePhoto(user.sub, dto.photoUrl ?? null);
   }
