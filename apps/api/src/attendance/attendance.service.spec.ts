@@ -161,3 +161,89 @@ describe("AttendanceService.punchOn", () => {
     expect(mockDeductions.recordPunchLateFromDutySession).toHaveBeenCalled();
   });
 });
+
+describe("AttendanceService.punchOff", () => {
+  let service: AttendanceService;
+
+  const activeSession = {
+    id: "session-1",
+    userId: "user-1",
+    teamId: "team-1",
+    punchedOnAt: new Date("2026-04-13T06:00:00.000Z"), // Dubai 10:00
+    status: DutySessionStatus.ACTIVE,
+    lateMinutes: 0,
+    overtimeMinutes: 0,
+    scheduledStartLocal: null,
+    scheduledEndLocal: null,
+    note: null,
+  };
+
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(SERVER_NOW); // Dubai 14:00
+    jest.clearAllMocks();
+
+    mockClientSync.findReceiptResponse.mockResolvedValue(null);
+    mockPrisma.dutySession.findFirst.mockResolvedValue(activeSession);
+    mockPrisma.breakSession.findMany.mockResolvedValue([]);
+    // tx.dutySession.update returns merged session + update data
+    mockTx.dutySession.update.mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      ...activeSession,
+      ...data,
+    }));
+    mockTx.breakSession.findMany.mockResolvedValue([]);
+    mockPrisma.auditEvent.create.mockResolvedValue({});
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ShiftsService, useValue: mockShifts },
+        { provide: DeductionsService, useValue: mockDeductions },
+        { provide: ClientSyncService, useValue: mockClientSync },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    delete process.env.APP_TIMEZONE;
+  });
+
+  it("returns cached receipt immediately (idempotency)", async () => {
+    const cached = { id: "session-1", syncStatus: "IDEMPOTENT" };
+    mockClientSync.findReceiptResponse.mockResolvedValue(cached);
+
+    const result = await service.punchOff(mockUser as never, {});
+    expect(result).toBe(cached);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("throws NotFoundException when no active session exists", async () => {
+    mockPrisma.dutySession.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.punchOff(mockUser as never, { clientTimestamp: SERVER_NOW.toISOString() }),
+    ).rejects.toThrow("No active duty session found");
+  });
+
+  it("closes session and returns correct punchOffSummary with workedMinutes", async () => {
+    process.env.APP_TIMEZONE = "Asia/Dubai";
+
+    const result = await service.punchOff(mockUser as never, {
+      clientTimestamp: SERVER_NOW.toISOString(),
+    }) as { punchOffSummary: { shiftMinutes: number; breakMinutes: number; workedMinutes: number } };
+
+    // Punched on at Dubai 10:00 (UTC 06:00), off at Dubai 14:00 (UTC 10:00) = 240 min
+    expect(result.punchOffSummary.shiftMinutes).toBe(240);
+    expect(result.punchOffSummary.breakMinutes).toBe(0);
+    expect(result.punchOffSummary.workedMinutes).toBe(240);
+    expect(mockTx.dutySession.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: DutySessionStatus.CLOSED }),
+      }),
+    );
+  });
+});
