@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Patch,
   Body,
@@ -22,6 +23,11 @@ export class VibesGateway {
   private readonly events$ = new Subject<MessageEvent>();
 
   constructor(private readonly vibesService: VibesService) {}
+
+  @Get("moods")
+  async getMoods(): Promise<Record<string, string | null>> {
+    return this.vibesService.getActiveMoods();
+  }
 
   @Sse("stream")
   stream(): Observable<MessageEvent> {
@@ -61,7 +67,8 @@ export class VibesGateway {
     @Body("text") text: string,
   ): Promise<void> {
     this.vibesService.validateBubble(text);
-    this.vibesService.checkBubbleRateLimit(authUser.sub);
+    // Rate limit disabled for testing
+    // this.vibesService.checkBubbleRateLimit(authUser.sub);
     this.events$.next({
       data: JSON.stringify({ type: "bubble", text }),
     });

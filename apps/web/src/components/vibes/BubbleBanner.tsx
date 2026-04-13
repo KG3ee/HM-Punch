@@ -20,8 +20,8 @@ interface Bubble {
   hue: number;
 }
 
-const BUBBLE_LIFETIME_BASE = 4.5; // seconds minimum
-const BUBBLE_LIFETIME_JITTER = 1.5; // up to this many extra seconds
+const BUBBLE_LIFETIME_BASE = 9; // seconds minimum
+const BUBBLE_LIFETIME_JITTER = 2; // up to this many extra seconds (9–11s total)
 const POP_DURATION = 0.4; // seconds for the pop/burst animation
 
 export function BubbleBanner() {

@@ -27,6 +27,18 @@ export function VibesProvider({ children }: { children: ReactNode }) {
   const [latestEvent, setLatestEvent] = useState<VibeEvent | null>(null);
   const [moodMap, setMoodMap] = useState<Record<string, string | null>>({});
 
+  // Seed moodMap with existing moods from active duty sessions
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+    fetch(`${apiUrl}/vibes/moods`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data: Record<string, string | null>) => {
+        setMoodMap((prev) => ({ ...data, ...prev }));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Live SSE stream for real-time updates
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
     const es = new EventSource(`${apiUrl}/vibes/stream`, { withCredentials: true });

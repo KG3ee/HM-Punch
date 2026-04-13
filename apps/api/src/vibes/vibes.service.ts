@@ -8,6 +8,19 @@ export class VibesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Return userId → mood for all active duty sessions that have a mood set. */
+  async getActiveMoods(): Promise<Record<string, string | null>> {
+    const sessions = await this.prisma.dutySession.findMany({
+      where: { status: DutySessionStatus.ACTIVE, mood: { not: null } },
+      select: { userId: true, mood: true },
+    });
+    const map: Record<string, string | null> = {};
+    for (const s of sessions) {
+      map[s.userId] = s.mood;
+    }
+    return map;
+  }
+
   async setMood(user: User, mood: string | null): Promise<void> {
     if (mood !== null && mood.length > 2) {
       throw new BadRequestException("Mood emoji must be 2 characters or fewer");
