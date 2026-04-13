@@ -51,38 +51,10 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
       </button>
 
       {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => { setOpen(false); setText(""); }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 99,
-              background: 'rgba(0, 0, 0, 0.5)',
-            }}
-          />
-          {/* Modal */}
-          <div
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 100,
-              background: 'var(--card-elevated)',
-              border: '1px solid var(--line)',
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              width: '90%',
-              maxWidth: '24rem',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-            }}
-          >
-            <h3 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-              Anonymous Bubble
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
+        <div className="modal-overlay" onClick={() => { setOpen(false); setText(""); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(400px, 94vw)' }}>
+            <h3>Anonymous Bubble</h3>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--muted)', marginBottom: 'var(--space-3)' }}>
               Your message appears on the live board for 60 seconds. No name attached.
             </p>
             <textarea
@@ -92,22 +64,14 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
               placeholder="What's on your mind? (max 80 chars)"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              style={{
-                width: '100%',
-                resize: 'none',
-                fontFamily: 'inherit',
-                minHeight: '4.5rem',
-              }}
+              style={{ width: '100%', resize: 'none', fontFamily: 'inherit', minHeight: '4.5rem' }}
             />
-            <div style={{ fontSize: '0.75rem', textAlign: 'right', color: 'var(--muted)', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: 'var(--text-xs)', textAlign: 'right', color: 'var(--muted)', marginTop: 'var(--space-1)' }}>
               {text.length}/80
             </div>
-            {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: '0.25rem' }}>{error}</p>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-              <button
-                className="button"
-                onClick={() => { setOpen(false); setText(""); }}
-              >
+            {error && <p style={{ color: 'var(--danger)', fontSize: 'var(--text-base)', marginTop: 'var(--space-1)' }}>{error}</p>}
+            <div className="modal-footer">
+              <button className="button" onClick={() => { setOpen(false); setText(""); }}>
                 Cancel
               </button>
               <button
@@ -119,7 +83,7 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   );
