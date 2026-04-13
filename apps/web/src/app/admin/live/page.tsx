@@ -6,6 +6,7 @@ import { AppShell } from '@/components/app-shell';
 import { AvatarName } from '@/components/avatar-name';
 import { BreakChips } from '@/components/break-chips';
 import { apiFetch } from '@/lib/api';
+import type { MeUser } from '@/types/auth';
 import {
   clearSynced,
   runQueuedAction,
@@ -21,7 +22,10 @@ import type {
 import { isTypingTarget } from '@/lib/is-typing-target';
 import { useModalKeyboard } from '@/hooks/use-modal-keyboard';
 import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { MoodPicker } from '@/components/vibes/MoodPicker';
+import { BubbleButton } from '@/components/vibes/BubbleButton';
 import { useVibes } from '@/components/vibes/VibesProvider';
+import { setMood, sendBubble } from '@/lib/api';
 
 /* ── Break constants ── */
 const TOP_BREAK_CODES = ['bwc', 'wc', 'cy'] as const;
@@ -242,6 +246,9 @@ export default function AdminLivePage() {
   const [showActiveSessions, setShowActiveSessions] = useState(true);
   const [showTodayBreakHistory, setShowTodayBreakHistory] = useState(true);
 
+  /* ── Current user (for vibes mood lookup) ── */
+  const [me, setMe] = useState<MeUser | null>(null);
+
   /* ── Personal duty/break state ── */
   const [sessions, setSessions] = useState<DutySession[]>([]);
   const [policies, setPolicies] = useState<BreakPolicy[]>([]);
@@ -368,14 +375,16 @@ export default function AdminLivePage() {
   /* ── Load personal data ── */
   async function loadPersonal(background = false) {
     if (!background) setPersonalLoading(true);
-    const [sessResult, polResult, brResult] = await Promise.allSettled([
+    const [sessResult, polResult, brResult, meResult] = await Promise.allSettled([
       apiFetch<DutySession[]>('/attendance/me/today'),
       apiFetch<BreakPolicy[]>('/breaks/policies'),
       apiFetch<BreakSession[]>('/breaks/me/today'),
+      apiFetch<MeUser>('/me'),
     ]);
     if (sessResult.status === 'fulfilled') setSessions(sessResult.value);
     if (polResult.status === 'fulfilled') setPolicies(polResult.value);
     if (brResult.status === 'fulfilled') setBreakSessions(brResult.value);
+    if (meResult.status === 'fulfilled') setMe(meResult.value);
     if (!background) setPersonalLoading(false);
   }
 
@@ -827,6 +836,23 @@ export default function AdminLivePage() {
             ) : null}
           </article>
         </section>
+
+        {/* ═══ Team Vibes ═══ */}
+        {activeSession ? (
+          <section className="vibes-strip card-animate">
+            <div className="vibes-zone">
+              <span className="vibes-zone-label">Your mood</span>
+              <MoodPicker
+                currentMood={me?.id ? moodMap[me.id] ?? null : null}
+                onSelect={async (mood) => { await setMood(mood); }}
+              />
+            </div>
+            <div className="vibes-zone">
+              <span className="vibes-zone-label">Team broadcast</span>
+              <BubbleButton isPunchedIn={!!activeSession} onSend={sendBubble} />
+            </div>
+          </section>
+        ) : null}
 
         {/* ═══ KPIs ═══ */}
         <section className="kpi-grid">
