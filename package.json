@@ -22,5 +22,13 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "overrides": {
+    "handlebars": "4.7.9",
+    "lodash": "4.18.1",
+    "picomatch": "4.0.4",
+    "defu": "6.1.5",
+    "effect": "3.20.0",
+    "path-to-regexp": "8.4.2"
   }
 }
