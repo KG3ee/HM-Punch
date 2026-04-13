@@ -197,13 +197,13 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   font-family: inherit;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
@@ -231,6 +231,11 @@ p {
 .button:active:not(:disabled) {
   transform: scale(0.98);
   transition-duration: var(--transition-fast);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-dim);
 }
 
 .button:disabled {
