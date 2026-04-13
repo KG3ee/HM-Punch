@@ -1041,6 +1041,52 @@ tbody tr:last-child td {
   }
 }
 
+/* ── Mood Picker Dropdown ── */
+.mood-picker-dropdown {
+  background: var(--card-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  width: 11rem;
+}
+
+.mood-picker-dropdown button {
+  font-size: var(--text-2xl);
+  padding: var(--space-1);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  line-height: 1;
+}
+
+.mood-picker-dropdown button:hover {
+  transform: scale(1.25);
+}
+
+.mood-picker-dropdown button[aria-pressed="true"] {
+  background: var(--brand-dim);
+}
+
+.mood-picker-dropdown .mood-clear {
+  font-size: var(--text-xs);
+  width: 100%;
+  text-align: center;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  padding: var(--space-1);
+}
+
+.mood-picker-dropdown .mood-clear:hover {
+  transform: none;
+  color: var(--ink-2);
+}
+
 .kpi {
   background: var(--card);
   border: 1px solid var(--line);
