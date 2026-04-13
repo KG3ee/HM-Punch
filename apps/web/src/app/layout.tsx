@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { VibesProvider } from '@/components/vibes/VibesProvider';
 
 export const metadata: Metadata = {
   title: 'Modern Punch Dashboard',
@@ -25,7 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-theme="dark">
       <body>
-        {children}
+        <VibesProvider>
+          {children}
+        </VibesProvider>
       </body>
     </html>
   );
