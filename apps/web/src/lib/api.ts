@@ -58,3 +58,10 @@ export async function sendReaction(emoji: string): Promise<void> {
     body: JSON.stringify({ emoji }),
   });
 }
+
+export async function setMood(mood: string | null): Promise<void> {
+  await apiFetch("/vibes/mood", {
+    method: "PATCH",
+    body: JSON.stringify({ mood }),
+  });
+}
