@@ -633,7 +633,7 @@ table {
 th, td {
   border-bottom: 1px solid var(--line);
   text-align: left;
-  padding: 0.625rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   vertical-align: middle;
   transition: all var(--transition);
 }
@@ -661,7 +661,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 tbody tr:hover td {
