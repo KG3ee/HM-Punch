@@ -32,6 +32,7 @@ import { PunchAttendanceConfirmModal } from '@/components/punch-attendance-confi
 import { MoodPicker } from '@/components/vibes/MoodPicker';
 import { BubbleButton } from '@/components/vibes/BubbleButton';
 import { setMood, sendBubble } from '@/lib/api';
+import { useVibes } from '@/components/vibes/VibesProvider';
 import type {
   AttendanceRefreshDetail,
   AttendanceRefreshSession,
@@ -276,6 +277,7 @@ function consumeOverLimitToastToken(
 
 export default function EmployeeDashboardPage() {
   const router = useRouter();
+  const { moodMap } = useVibes();
   const [me, setMe] = useState<MeUser | null>(null);
 
   const [sessions, setSessions] = useState<DutySession[]>([]);
@@ -1550,7 +1552,7 @@ export default function EmployeeDashboardPage() {
               <div className="vibes-zone">
                 <span className="vibes-zone-label">Your mood</span>
                 <MoodPicker
-                  currentMood={null}
+                  currentMood={me?.id ? moodMap[me.id] ?? null : null}
                   onSelect={async (mood) => { await setMood(mood); }}
                 />
               </div>
