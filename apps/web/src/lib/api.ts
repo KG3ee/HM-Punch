@@ -72,3 +72,10 @@ export async function sendBubble(text: string): Promise<void> {
     body: JSON.stringify({ text }),
   });
 }
+
+export async function savePalette(palette: string[]): Promise<void> {
+  await apiFetch("/vibes/palette", {
+    method: "PATCH",
+    body: JSON.stringify({ palette }),
+  });
+}
