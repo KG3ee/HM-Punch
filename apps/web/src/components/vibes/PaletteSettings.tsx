@@ -36,12 +36,12 @@ export function PaletteSettings({ initial, onSave }: PaletteSettingsProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <p style={{ fontSize: "var(--text-base)", color: "var(--muted)" }}>
         Pick up to 6 emojis for your reaction palette. These appear when teammates hover your
         avatar on the live board.
       </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
         {EMOJI_SUGGESTIONS.map((emoji) => (
           <button
             key={emoji}
@@ -49,41 +49,32 @@ export function PaletteSettings({ initial, onSave }: PaletteSettingsProps) {
             aria-label={`${palette.includes(emoji) ? "Remove" : "Add"} ${emoji} from palette`}
             aria-pressed={palette.includes(emoji)}
             style={{
-              fontSize: "1.5rem",
-              padding: "4px 8px",
-              borderRadius: "6px",
+              fontSize: "var(--text-3xl)",
+              padding: "var(--space-1) var(--space-2)",
+              borderRadius: "var(--radius)",
               border: "2px solid",
-              borderColor: palette.includes(emoji) ? "var(--primary, #6366f1)" : "transparent",
-              background: palette.includes(emoji) ? "var(--primary-muted, #e0e7ff)" : "transparent",
+              borderColor: palette.includes(emoji) ? "var(--brand)" : "transparent",
+              background: palette.includes(emoji) ? "var(--brand-dim)" : "transparent",
               opacity: !palette.includes(emoji) && palette.length >= 6 ? 0.4 : 1,
               cursor: !palette.includes(emoji) && palette.length >= 6 ? "not-allowed" : "pointer",
               transform: palette.includes(emoji) ? "scale(1.1)" : "scale(1)",
-              transition: "all 0.15s ease",
+              transition: "all var(--transition)",
             }}
           >
             {emoji}
           </button>
         ))}
       </div>
-      <p style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--muted)" }}>
         Selected: {palette.length === 0 ? "none" : palette.join(" ")} ({palette.length}/6)
       </p>
       <button
+        className={saved ? "button button-ok" : "button button-primary"}
         onClick={handleSave}
         disabled={saving}
-        style={{
-          alignSelf: "flex-start",
-          padding: "6px 16px",
-          borderRadius: "6px",
-          background: saved ? "var(--success-muted, #d1fae5)" : "var(--primary, #6366f1)",
-          color: saved ? "var(--success, #059669)" : "white",
-          border: "none",
-          cursor: saving ? "not-allowed" : "pointer",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-        }}
+        style={{ alignSelf: "flex-start" }}
       >
-        {saving ? "Saving…" : saved ? "Saved ✓" : "Save palette"}
+        {saving ? "Saving\u2026" : saved ? "Saved \u2713" : "Save palette"}
       </button>
     </div>
   );
