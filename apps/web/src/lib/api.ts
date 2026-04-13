@@ -51,3 +51,10 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   return (await response.json()) as T;
 }
+
+export async function sendReaction(emoji: string): Promise<void> {
+  await apiFetch("/vibes/reaction", {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}
