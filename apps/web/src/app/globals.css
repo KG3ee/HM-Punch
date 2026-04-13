@@ -501,6 +501,7 @@ p {
 
 /* ── Cards (Modern SaaS Dark) ── */
 .card {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -515,6 +516,22 @@ p {
   border-color: var(--line-hover);
   box-shadow: var(--shadow-md);
   background: var(--card-hover);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--brand-gradient);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.card:hover::before {
+  opacity: 1;
 }
 
 .card h3 {
