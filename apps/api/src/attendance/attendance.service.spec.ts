@@ -113,7 +113,10 @@ describe("AttendanceService.punchOn", () => {
     service = module.get<AttendanceService>(AttendanceService);
   });
 
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    delete process.env.APP_TIMEZONE;
+  });
 
   it("returns cached receipt immediately if one exists (idempotency)", async () => {
     const cached = { id: "session-1", syncStatus: "IDEMPOTENT" };
