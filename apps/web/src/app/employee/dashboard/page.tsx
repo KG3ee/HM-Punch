@@ -1544,6 +1544,26 @@ export default function EmployeeDashboardPage() {
             ) : null}
           </section>
 
+          {/* ── Vibes Strip (visible when punched in) ── */}
+          {activeSession ? (
+            <section className="vibes-strip card-animate">
+              <div className="vibes-zone">
+                <span className="vibes-zone-label">Your mood</span>
+                <MoodPicker
+                  currentMood={null}
+                  onSelect={async (mood) => { await setMood(mood); }}
+                />
+              </div>
+              <div className="vibes-zone">
+                <span className="vibes-zone-label">Team broadcast</span>
+                <BubbleButton
+                  isPunchedIn={!!activeSession}
+                  onSend={sendBubble}
+                />
+              </div>
+            </section>
+          ) : null}
+
           {/* ── Main Layout (non-Leader) ── */}
           <section className="split">
             {/* Left column — Actions */}
@@ -1739,28 +1759,6 @@ export default function EmployeeDashboardPage() {
                         ) : null}
                       </tbody>
                     </table>
-                  </div>
-                </article>
-              ) : null}
-              {/* ── Team Vibes (visible when punched in) ── */}
-              {activeSession ? (
-                <article className="card card-animate">
-                  <h3>✨ Team Vibes</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Your mood</span>
-                      <MoodPicker
-                        currentMood={null}
-                        onSelect={async (mood) => { await setMood(mood); }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Team broadcast</span>
-                      <BubbleButton
-                        isPunchedIn={!!activeSession}
-                        onSend={sendBubble}
-                      />
-                    </div>
                   </div>
                 </article>
               ) : null}
