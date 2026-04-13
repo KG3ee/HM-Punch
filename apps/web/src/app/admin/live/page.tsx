@@ -20,6 +20,8 @@ import type {
 } from '@/lib/attendance-events';
 import { isTypingTarget } from '@/lib/is-typing-target';
 import { useModalKeyboard } from '@/hooks/use-modal-keyboard';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { useVibes } from '@/components/vibes/VibesProvider';
 
 /* ── Break constants ── */
 const TOP_BREAK_CODES = ['bwc', 'wc', 'cy'] as const;
@@ -88,7 +90,7 @@ type LiveDuty = {
   punchedOnAt: string;
   isLate: boolean;
   lateMinutes: number;
-  user: { displayName: string; profilePhotoUrl?: string | null; role?: string };
+  user: { id: string; displayName: string; profilePhotoUrl?: string | null; role?: string };
   team?: { name: string } | null;
   breakSessions: LiveBreak[];
 };
@@ -219,6 +221,7 @@ function describeDiscardedQueueAction(action: QueuedAction): string {
 
 export default function AdminLivePage() {
   const router = useRouter();
+  const { moodMap } = useVibes();
 
   /* ── Monitoring state ── */
   const [data, setData] = useState<LiveBoard | null>(null);
@@ -894,11 +897,14 @@ export default function AdminLivePage() {
                     {data?.activeDutySessions.map((session) => (
                       <tr key={session.id}>
                         <td>
-                          <AvatarName
-                            displayName={session.user.displayName}
-                            profilePhotoUrl={session.user.profilePhotoUrl}
-                            subtitle={session.user.role || null}
-                          />
+                          <div style={{ position: 'relative', display: 'inline-flex' }}>
+                            <AvatarName
+                              displayName={session.user.displayName}
+                              profilePhotoUrl={session.user.profilePhotoUrl}
+                              subtitle={session.user.role || null}
+                            />
+                            <MoodBadge mood={moodMap[session.user.id] ?? null} />
+                          </div>
                         </td>
                         <td>{session.team?.name ? <span className="tag brand">{session.team.name}</span> : <span className="tag">Service</span>}</td>
                         <td>{session.user.role ? <span className={`tag role-${session.user.role.toLowerCase()}`}>{session.user.role}</span> : '—'}</td>
