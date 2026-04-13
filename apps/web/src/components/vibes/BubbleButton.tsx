@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 interface BubbleButtonProps {
   isPunchedIn: boolean;
@@ -50,7 +51,7 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
         📢
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="modal-overlay" onClick={() => { setOpen(false); setText(""); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(400px, 94vw)' }}>
             <h3>Anonymous Bubble</h3>
@@ -83,7 +84,8 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
