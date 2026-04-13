@@ -65,6 +65,16 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
               placeholder="What's on your mind? (max 80 chars)"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+                if (e.key === 'Escape') {
+                  setOpen(false);
+                  setText("");
+                }
+              }}
               style={{ width: '100%', resize: 'none', fontFamily: 'inherit', minHeight: '4.5rem' }}
             />
             <div style={{ fontSize: 'var(--text-xs)', textAlign: 'right', color: 'var(--muted)', marginTop: 'var(--space-1)' }}>
