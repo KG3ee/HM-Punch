@@ -1,6 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { User } from "@prisma/client";
+import { DutySessionStatus, Prisma, User } from "@prisma/client";
 
 @Injectable()
 export class VibesService {
@@ -12,20 +12,34 @@ export class VibesService {
     if (mood !== null && mood.length > 2) {
       throw new BadRequestException("Mood emoji must be 2 characters or fewer");
     }
-    await this.prisma.dutySession.update({
-      where: { id: await this.getActiveSessionId(user.id) },
-      data: { mood },
-    });
+    try {
+      await this.prisma.dutySession.update({
+        where: { id: await this.getActiveSessionId(user.id) },
+        data: { mood },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+        throw new NotFoundException("Duty session no longer exists");
+      }
+      throw e;
+    }
   }
 
   async savePalette(user: User, palette: string[]): Promise<void> {
     if (palette.length > 6) {
       throw new BadRequestException("Reaction palette cannot have more than 6 emojis");
     }
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { reactionPalette: palette },
-    });
+    try {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { reactionPalette: palette },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+        throw new NotFoundException("User no longer exists");
+      }
+      throw e;
+    }
   }
 
   validateBubble(text: string): void {
@@ -48,7 +62,7 @@ export class VibesService {
 
   private async getActiveSessionId(userId: string): Promise<string> {
     const session = await this.prisma.dutySession.findFirst({
-      where: { userId, status: "ACTIVE" },
+      where: { userId, status: DutySessionStatus.ACTIVE },
       select: { id: true },
     });
     if (!session) throw new ForbiddenException("No active duty session");
