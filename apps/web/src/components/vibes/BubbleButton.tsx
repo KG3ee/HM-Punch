@@ -53,7 +53,7 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
               className="textarea textarea-bordered w-full"
               maxLength={80}
               rows={3}
-              placeholder="What&apos;s on your mind? (max 80 chars)"
+              placeholder="What's on your mind? (max 80 chars)"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
