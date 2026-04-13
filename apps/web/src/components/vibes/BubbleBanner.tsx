@@ -27,13 +27,35 @@ export function BubbleBanner() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center"
+      style={{
+        position: 'fixed',
+        bottom: '2rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 50,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+        alignItems: 'center',
+        pointerEvents: 'none',
+      }}
       aria-live="polite"
     >
       {banners.map(({ id, text }) => (
         <div
           key={id}
-          className="bg-base-300 text-base-content px-4 py-2 rounded-full shadow-lg text-sm max-w-xs text-center"
+          style={{
+            background: 'var(--card-elevated)',
+            color: 'var(--foreground)',
+            padding: '0.5rem 1rem',
+            borderRadius: '9999px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+            fontSize: '0.875rem',
+            maxWidth: '20rem',
+            textAlign: 'center',
+            border: '1px solid var(--line)',
+            pointerEvents: 'auto',
+          }}
         >
           📢 {text}
         </div>

@@ -28,15 +28,25 @@ export function ReactionFloat() {
   if (floaters.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50" aria-hidden="true">
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        pointerEvents: 'none',
+      }}
+      aria-hidden="true"
+    >
       {floaters.map(({ id, emoji, x }) => (
         <span
           key={id}
-          className="absolute text-4xl animate-bounce select-none"
           style={{
+            position: 'absolute',
             left: `${x}%`,
-            bottom: "20%",
-            animationDuration: "0.4s",
+            bottom: '20%',
+            fontSize: '2.25rem',
+            userSelect: 'none',
+            animation: 'float-up 3s ease-out forwards',
           }}
         >
           {emoji}
