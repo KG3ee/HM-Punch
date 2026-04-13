@@ -26,6 +26,8 @@ COPY --from=builder /app/packages /bundle/packages
 COPY --from=builder /app/apps/api/package.json /bundle/apps/api/package.json
 COPY --from=builder /app/apps/api/prisma /bundle/apps/api/prisma
 COPY --from=builder /app/apps/api/dist /bundle/dist
+COPY --from=builder /app/apps/api/scripts/entrypoint.sh /bundle/entrypoint.sh
+RUN chmod +x /bundle/entrypoint.sh
 
 EXPOSE 4000
-CMD ["node", "/bundle/dist/main.js"]
+CMD ["/bundle/entrypoint.sh"]
