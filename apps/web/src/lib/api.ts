@@ -65,3 +65,10 @@ export async function setMood(mood: string | null): Promise<void> {
     body: JSON.stringify({ mood }),
   });
 }
+
+export async function sendBubble(text: string): Promise<void> {
+  await apiFetch("/vibes/bubble", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
