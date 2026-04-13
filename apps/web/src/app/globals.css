@@ -990,17 +990,19 @@ tbody tr:last-child td {
 .vibes-strip {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.625rem 1rem;
+  gap: var(--space-6);
+  padding: var(--space-2) var(--space-4);
   background: var(--card-elevated);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
 }
 
 .vibes-strip .vibes-zone {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .vibes-strip .vibes-zone-label {
@@ -1013,7 +1015,7 @@ tbody tr:last-child td {
   .vibes-strip {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.75rem;
+    gap: var(--space-3);
   }
 }
 
