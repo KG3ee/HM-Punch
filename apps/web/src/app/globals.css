@@ -986,6 +986,37 @@ tbody tr:last-child td {
   gap: var(--space-2);
 }
 
+/* ── Vibes Strip (mood + bubble, between KPI row and split) ── */
+.vibes-strip {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--card-elevated);
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+}
+
+.vibes-strip .vibes-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vibes-strip .vibes-zone-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .vibes-strip {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+}
+
 .kpi {
   background: var(--card);
   border: 1px solid var(--line);
