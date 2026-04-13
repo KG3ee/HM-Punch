@@ -3,8 +3,9 @@
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, savePalette } from '@/lib/api';
 import { isTypingTarget } from '@/lib/is-typing-target';
+import { PaletteSettings } from '@/components/vibes/PaletteSettings';
 import { MeUser } from '@/types/auth';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -378,6 +379,14 @@ function ProfileContent() {
               </button>
             </div>
           </form>
+        </article>
+        {/* ── Reaction Palette ── */}
+        <article className="card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>✨ Reaction Palette</h3>
+          <PaletteSettings
+            initial={me?.reactionPalette ?? []}
+            onSave={savePalette}
+          />
         </article>
         </div>
       </div>
