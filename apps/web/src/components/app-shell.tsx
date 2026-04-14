@@ -516,15 +516,24 @@ export function AppShell({
               : null}
             {isPunchedIn ? (
               <div className="nav-vibes">
-                <MoodPicker
-                  currentMood={me?.id ? moodMap[me.id] ?? null : null}
-                  onSelect={async (mood) => { await setMood(mood); }}
-                />
-                <ReactionButton
-                  palette={me?.reactionPalette}
-                  onSend={sendReaction}
-                />
-                <BubbleButton isPunchedIn onSend={sendBubble} />
+                <div className="nav-vibes-item">
+                  <MoodPicker
+                    currentMood={me?.id ? moodMap[me.id] ?? null : null}
+                    onSelect={async (mood) => { await setMood(mood); }}
+                  />
+                  <span className="nav-vibes-label">Mood</span>
+                </div>
+                <div className="nav-vibes-item">
+                  <ReactionButton
+                    palette={me?.reactionPalette}
+                    onSend={sendReaction}
+                  />
+                  <span className="nav-vibes-label">React</span>
+                </div>
+                <div className="nav-vibes-item">
+                  <BubbleButton isPunchedIn onSend={sendBubble} />
+                  <span className="nav-vibes-label">Shout</span>
+                </div>
               </div>
             ) : null}
           </nav>

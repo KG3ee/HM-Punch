@@ -36,19 +36,11 @@ export function BubbleButton({ isPunchedIn, onSend }: BubbleButtonProps) {
     <>
       <button
         onClick={() => setOpen(true)}
+        className="nav-vibes-shout-btn"
         aria-label="Send anonymous message to team"
         title="Send anonymous bubble"
-        style={{
-          background: 'none',
-          border: 'none',
-          fontSize: '1.5rem',
-          cursor: 'pointer',
-          padding: '0.25rem',
-          borderRadius: '50%',
-          lineHeight: 1,
-        }}
       >
-        📢
+        💬
       </button>
 
       {open && createPortal(
