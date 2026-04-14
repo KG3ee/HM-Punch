@@ -1515,25 +1515,6 @@ export default function EmployeeDashboardPage() {
             </section>
           ) : null}
 
-          {/* ── Today KPI Row (non-Leader) ── */}
-          <section className={`kpi-grid${me?.role === 'DRIVER' || me?.role === 'MAID' || me?.role === 'CHEF' ? ' kpi-mobile-first' : ''}`}>
-            <article className="kpi kpi-link card-animate card-animate-delay-1"
-              onClick={() => { document.getElementById('current-session')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              <p className="kpi-label">Duty</p>
-              <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span className={`status-dot ${activeSession ? 'active' : 'inactive'}`} />
-                {activeSession ? fmtDuration(activeDutyMinutes) : 'Off'}
-              </p>
-            </article>
-            {activeSession?.isLate && me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
-              <article className="kpi kpi-link card-animate card-animate-delay-2"
-                onClick={() => router.push('/employee/requests')}>
-                <p className="kpi-label">Late</p>
-                <p className="kpi-value" style={{ color: 'var(--danger)' }}>{activeSession.lateMinutes}m</p>
-              </article>
-            ) : null}
-          </section>
-
           {/* ── Main Layout (non-Leader) ── */}
           <section className="split">
             {/* Left column — Actions */}
