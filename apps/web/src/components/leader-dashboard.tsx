@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AvatarName } from '@/components/avatar-name';
 import { BreakChips } from '@/components/break-chips';
 import { apiFetch } from '@/lib/api';
@@ -230,6 +231,7 @@ export function LeaderDashboard({
   isOffline,
   runAction,
 }: LeaderDashboardProps) {
+  const router = useRouter();
   const [nowTick, setNowTick] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -634,30 +636,22 @@ export function LeaderDashboard({
 
       {/* ═══ 2. TEAM KPIs ═══ */}
       <section className="kpi-grid">
-        <article className="kpi">
-          <p className="kpi-label">Active</p>
-          <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            {(liveData?.activeDutySessions.length || 0) > 0 && <span className="status-dot active" />}
-            {liveData?.activeDutySessions.length || 0}
-          </p>
-        </article>
-        <article className="kpi">
-          <p className="kpi-label">Total</p>
-          <p className="kpi-value">{liveData?.summary.totalSessionsToday || 0}</p>
-        </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Late</p>
           <p className="kpi-value" style={{ color: (liveData?.summary.totalLateMinutesToday || 0) > 0 ? 'var(--danger)' : undefined }}>
             {liveData?.summary.totalLateMinutesToday || 0}m
           </p>
         </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Requests</p>
           <p className="kpi-value" style={{ color: pendingReqs.length > 0 ? 'var(--danger)' : undefined }}>
             {pendingReqs.length}
           </p>
         </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Violations</p>
           <p className="kpi-value" style={{ color: pendingViolations.length > 0 ? 'var(--danger)' : undefined }}>
             {pendingViolations.length}
@@ -1052,17 +1046,20 @@ export function LeaderDashboard({
       {/* ═══ 10. PERSONAL MONTHLY STATS ═══ */}
       {monthlySummary ? (
         <section className="kpi-grid" style={{ opacity: 0.8 }}>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Month Hours</p>
             <p className="kpi-value" style={{ fontSize: '1rem' }}>{fmtDur(monthlySummary.totalWorkedMinutes)}</p>
           </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Month Late</p>
             <p className="kpi-value" style={{ fontSize: '1rem', color: monthlySummary.totalLateMinutes > 0 ? 'var(--danger)' : undefined }}>
               {monthlySummary.totalLateMinutes}m
             </p>
           </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Overtime</p>
             <p className="kpi-value" style={{ fontSize: '1rem', color: monthlySummary.totalOvertimeMinutes > 0 ? 'var(--ok)' : undefined }}>
               {monthlySummary.totalOvertimeMinutes}m

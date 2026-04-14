@@ -830,30 +830,23 @@ export default function AdminLivePage() {
 
         {/* ═══ KPIs ═══ */}
         <section className="kpi-grid">
-          <article className="kpi">
-            <p className="kpi-label">Date</p>
-            <p className="kpi-value mono">{data?.localDate || '—'}</p>
-          </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/admin/history')}>
             <p className="kpi-label">Active Now</p>
             <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               {(data?.activeDutySessions.length || 0) > 0 && <span className="status-dot active" />}
               {data?.activeDutySessions.length || 0}
             </p>
           </article>
-          <article className="kpi">
-            <p className="kpi-label">Total Today</p>
-            <p className="kpi-value">{data?.summary.totalSessionsToday || 0}</p>
-          </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/admin/deductions')}>
             <p className="kpi-label">Late</p>
             <p className="kpi-value" style={{ color: (data?.summary.totalLateMinutesToday || 0) > 0 ? 'var(--danger)' : undefined }}>
               {data?.summary.totalLateMinutesToday || 0}m
             </p>
           </article>
           <article
-            className="kpi"
-            style={{ cursor: totalPending > 0 ? 'pointer' : undefined }}
+            className={`kpi${totalPending > 0 ? ' kpi-link' : ''}`}
             onClick={() => { if (totalPending > 0) router.push('/admin/requests'); }}
           >
             <p className="kpi-label">Requests</p>
@@ -862,8 +855,7 @@ export default function AdminLivePage() {
             </p>
           </article>
           <article
-            className="kpi"
-            style={{ cursor: pendingSignups > 0 ? 'pointer' : undefined }}
+            className={`kpi${pendingSignups > 0 ? ' kpi-link' : ''}`}
             onClick={() => { if (pendingSignups > 0) router.push('/admin/users?section=registrations'); }}
           >
             <p className="kpi-label">Signups</p>

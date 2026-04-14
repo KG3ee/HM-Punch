@@ -1143,6 +1143,30 @@ tbody tr:last-child td {
   margin-top: var(--space-1);
 }
 
+.kpi.kpi-link {
+  cursor: pointer;
+}
+
+.kpi.kpi-link:hover {
+  border-color: var(--brand);
+}
+
+.kpi.kpi-link::after {
+  content: '→';
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.kpi.kpi-link:hover::after {
+  opacity: 1;
+  color: var(--brand);
+}
+
 /* ── Generic .grid (e.g. admin deductions policy columns via inline gridTemplateColumns) ── */
 .grid {
   display: grid;
