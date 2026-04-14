@@ -901,6 +901,7 @@ tbody tr:last-child td {
 /* Nav row — underline tab style, horizontally scrollable */
 .shell-nav {
   display: flex;
+  align-items: center;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1008,83 +1009,88 @@ tbody tr:last-child td {
   gap: var(--space-2);
 }
 
-/* ── Vibes Strip (mood + bubble, between KPI row and split) ── */
-.vibes-strip {
+/* ── Nav Vibes (mood + bubble controls in nav bar) ── */
+.nav-vibes {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-2) var(--space-4);
-  background: var(--card-elevated);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
+  gap: var(--space-2);
+  margin-left: auto;
+  padding-right: var(--space-1);
+  flex-shrink: 0;
 }
 
-.vibes-strip .vibes-zone {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.nav-vibes-mood-btn {
+  font-size: var(--text-xl);
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-fast);
 }
 
-.vibes-strip .vibes-zone-label {
-  font-size: 0.75rem;
-  color: var(--muted);
-  font-weight: 500;
+.nav-vibes-mood-btn:hover {
+  transform: scale(1.2);
 }
 
-@media (max-width: 640px) {
-  .vibes-strip {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
-  }
+.nav-vibes-mood-btn:disabled {
+  cursor: wait;
 }
 
-/* ── Mood Picker Dropdown ── */
-.mood-picker-dropdown {
+/* ── Mood Picker Popover (emoji input) ── */
+.mood-picker-popover {
+  position: absolute;
+  bottom: 2.5rem;
+  right: 0;
   background: var(--card-elevated);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: var(--space-2);
+  padding: var(--space-3);
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  width: 11rem;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 13rem;
 }
 
-.mood-picker-dropdown button {
-  font-size: var(--text-2xl);
-  padding: var(--space-1);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-  line-height: 1;
-}
-
-.mood-picker-dropdown button:hover {
-  transform: scale(1.25);
-}
-
-.mood-picker-dropdown button[aria-pressed="true"] {
-  background: var(--brand-dim);
-}
-
-.mood-picker-dropdown .mood-clear {
-  font-size: var(--text-xs);
+.mood-picker-input {
   width: 100%;
   text-align: center;
-  margin-top: var(--space-1);
-  color: var(--muted);
-  padding: var(--space-1);
+  font-size: var(--text-2xl);
+  padding: var(--space-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  outline: none;
+  transition: border-color var(--transition-fast);
 }
 
-.mood-picker-dropdown .mood-clear:hover {
-  transform: none;
-  color: var(--ink-2);
+.mood-picker-input::placeholder {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.mood-picker-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-dim);
+}
+
+.mood-clear-btn {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  text-align: center;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.mood-clear-btn:hover {
+  color: var(--danger);
 }
 
 .kpi {

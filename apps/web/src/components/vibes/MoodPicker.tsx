@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const QUICK_MOODS = ["😊", "🔥", "😴", "💪", "🤔", "😎", "🙏", "🎯"];
+/** Matches most emoji (including multi-codepoint sequences like flags, skin tones, ZWJ combos). */
+const EMOJI_REGEX =
+  /[\p{Emoji_Presentation}\p{Extended_Pictographic}](\u200D[\p{Emoji_Presentation}\p{Extended_Pictographic}]|\uFE0F)*/u;
+
+function extractEmoji(value: string): string | null {
+  const match = value.match(EMOJI_REGEX);
+  return match ? match[0] : null;
+}
 
 interface MoodPickerProps {
   currentMood: string | null | undefined;
@@ -12,6 +19,14 @@ interface MoodPickerProps {
 export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus input when popover opens
+  useEffect(() => {
+    if (open && inputRef.current) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
 
   async function handleSelect(mood: string | null) {
     setPending(true);
@@ -23,25 +38,25 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
     }
   }
 
+  function handleInput(e: React.FormEvent<HTMLInputElement>) {
+    const raw = e.currentTarget.value;
+    const emoji = extractEmoji(raw);
+    if (emoji) {
+      void handleSelect(emoji);
+    } else {
+      // Strip non-emoji characters
+      e.currentTarget.value = "";
+    }
+  }
+
   return (
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={pending}
+        className="nav-vibes-mood-btn"
         aria-label="Set mood"
         title="Click to set your mood"
-        style={{
-          fontSize: "var(--text-2xl)",
-          lineHeight: 1,
-          background: "none",
-          border: "none",
-          cursor: pending ? "wait" : "pointer",
-          padding: "var(--space-1)",
-          borderRadius: "var(--radius-sm)",
-          transition: "transform var(--transition-fast)",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
       >
         {currentMood ?? "🙂"}
       </button>
@@ -52,26 +67,28 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
             onClick={() => setOpen(false)}
             style={{ position: "fixed", inset: 0, zIndex: 98 }}
           />
-          <div
-            className="mood-picker-dropdown"
-            style={{ position: "absolute", zIndex: 99, bottom: "2.25rem", left: 0 }}
-          >
-            {QUICK_MOODS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleSelect(emoji)}
-                aria-label={`Set mood to ${emoji}`}
-                aria-pressed={currentMood === emoji}
-              >
-                {emoji}
-              </button>
-            ))}
+          <div className="mood-picker-popover" style={{ zIndex: 99 }}>
+            <input
+              ref={inputRef}
+              className="mood-picker-input"
+              type="text"
+              placeholder="Pick an emoji..."
+              maxLength={8}
+              onInput={handleInput}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                }
+              }}
+              autoComplete="off"
+              spellCheck={false}
+            />
             {currentMood && (
               <button
-                className="mood-clear"
+                className="mood-clear-btn"
                 onClick={() => handleSelect(null)}
               >
-                Clear mood
+                ✕ Clear mood
               </button>
             )}
           </div>

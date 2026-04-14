@@ -29,9 +29,6 @@ import { DashboardSkeleton } from '@/components/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { SplitColumnStack } from '@/components/layout/split-column-stack';
 import { PunchAttendanceConfirmModal } from '@/components/punch-attendance-confirm-modal';
-import { MoodPicker } from '@/components/vibes/MoodPicker';
-import { BubbleButton } from '@/components/vibes/BubbleButton';
-import { setMood, sendBubble } from '@/lib/api';
 import { useVibes } from '@/components/vibes/VibesProvider';
 import type {
   AttendanceRefreshDetail,
@@ -1545,26 +1542,6 @@ export default function EmployeeDashboardPage() {
               </article>
             ) : null}
           </section>
-
-          {/* ── Vibes Strip (visible when punched in) ── */}
-          {activeSession ? (
-            <section className="vibes-strip card-animate">
-              <div className="vibes-zone">
-                <span className="vibes-zone-label">Your mood</span>
-                <MoodPicker
-                  currentMood={me?.id ? moodMap[me.id] ?? null : null}
-                  onSelect={async (mood) => { await setMood(mood); }}
-                />
-              </div>
-              <div className="vibes-zone">
-                <span className="vibes-zone-label">Team broadcast</span>
-                <BubbleButton
-                  isPunchedIn={!!activeSession}
-                  onSend={sendBubble}
-                />
-              </div>
-            </section>
-          ) : null}
 
           {/* ── Main Layout (non-Leader) ── */}
           <section className="split">
