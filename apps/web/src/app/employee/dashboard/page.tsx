@@ -29,6 +29,8 @@ import { DashboardSkeleton } from '@/components/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { SplitColumnStack } from '@/components/layout/split-column-stack';
 import { PunchAttendanceConfirmModal } from '@/components/punch-attendance-confirm-modal';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { useVibes } from '@/components/vibes/VibesProvider';
 import type {
   AttendanceRefreshDetail,
   AttendanceRefreshSession,
@@ -273,6 +275,7 @@ function consumeOverLimitToastToken(
 
 export default function EmployeeDashboardPage() {
   const router = useRouter();
+  const { moodMap } = useVibes();
   const [me, setMe] = useState<MeUser | null>(null);
 
   const [sessions, setSessions] = useState<DutySession[]>([]);
@@ -1491,17 +1494,20 @@ export default function EmployeeDashboardPage() {
           {/* ── Monthly KPI Row (non-Leader) ── */}
           {monthlySummary && me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
             <section className="kpi-grid">
-              <article className="kpi card-animate card-animate-delay-1">
+              <article className="kpi kpi-link card-animate card-animate-delay-1"
+                onClick={() => router.push(me?.role === 'ADMIN' ? '/admin/history' : '/employee/requests')}>
                 <p className="kpi-label">Month Hours</p>
                 <p className="kpi-value">{fmtDuration(monthlySummary.totalWorkedMinutes)}</p>
               </article>
-              <article className="kpi card-animate card-animate-delay-2">
+              <article className="kpi kpi-link card-animate card-animate-delay-2"
+                onClick={() => router.push(me?.role === 'ADMIN' ? '/admin/history' : '/employee/requests')}>
                 <p className="kpi-label">Month Late</p>
                 <p className="kpi-value" style={{ color: monthlySummary.totalLateMinutes > 0 ? 'var(--danger)' : undefined }}>
                   {monthlySummary.totalLateMinutes}m
                 </p>
               </article>
-              <article className="kpi card-animate card-animate-delay-3">
+              <article className="kpi kpi-link card-animate card-animate-delay-3"
+                onClick={() => router.push(me?.role === 'ADMIN' ? '/admin/history' : '/employee/requests')}>
                 <p className="kpi-label">Overtime</p>
                 <p className="kpi-value" style={{ color: monthlySummary.totalOvertimeMinutes > 0 ? 'var(--ok)' : undefined }}>
                   {monthlySummary.totalOvertimeMinutes}m
@@ -1509,37 +1515,6 @@ export default function EmployeeDashboardPage() {
               </article>
             </section>
           ) : null}
-
-          {/* ── Today KPI Row (non-Leader) ── */}
-          <section className={`kpi-grid${me?.role === 'DRIVER' || me?.role === 'MAID' || me?.role === 'CHEF' ? ' kpi-mobile-first' : ''}`}>
-            <article className="kpi card-animate card-animate-delay-1">
-              <p className="kpi-label">Sessions</p>
-              <p className="kpi-value">{sessions.length}</p>
-            </article>
-            <article className="kpi card-animate card-animate-delay-2">
-              <p className="kpi-label">Duty</p>
-              <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span className={`status-dot ${activeSession ? 'active' : 'inactive'}`} />
-                {activeSession ? fmtDuration(activeDutyMinutes) : 'Off'}
-              </p>
-            </article>
-            {me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
-              <article className="kpi card-animate card-animate-delay-3">
-                <p className="kpi-label">Break</p>
-                <p className="kpi-value">
-                  {activeBreak ? (
-                    <span style={{ color: 'var(--ok)' }}>{activeBreak.breakPolicy.code.toUpperCase()}</span>
-                  ) : 'None'}
-                </p>
-              </article>
-            ) : null}
-            {activeSession?.isLate && me?.role !== 'MAID' && me?.role !== 'CHEF' ? (
-              <article className="kpi card-animate card-animate-delay-4">
-                <p className="kpi-label">Late</p>
-                <p className="kpi-value" style={{ color: 'var(--danger)' }}>{activeSession.lateMinutes}m</p>
-              </article>
-            ) : null}
-          </section>
 
           {/* ── Main Layout (non-Leader) ── */}
           <section className="split">
@@ -1705,11 +1680,14 @@ export default function EmployeeDashboardPage() {
                         {publicBreakSessions.map((session) => (
                           <tr key={`${session.userId}-${session.activeBreak?.startedAt || 'none'}`}>
                             <td>
-                              <AvatarName
-                                displayName={session.displayName}
-                                profilePhotoUrl={session.profilePhotoUrl}
-                                size={30}
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <AvatarName
+                                  displayName={session.displayName}
+                                  profilePhotoUrl={session.profilePhotoUrl}
+                                  size={30}
+                                />
+                                <MoodBadge mood={moodMap[session.userId] ?? null} />
+                              </div>
                             </td>
                             <td>{session.teamName}</td>
                             <td>
@@ -1743,7 +1721,7 @@ export default function EmployeeDashboardPage() {
 
             {/* Right column — Current Session */}
             <SplitColumnStack>
-              <article className="card card-animate card-animate-delay-3">
+              <article id="current-session" className="card card-animate card-animate-delay-3">
                 <h3>Current Session</h3>
                 <div className="table-wrap">
                   <table className="table-card-mobile">

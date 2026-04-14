@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AvatarName } from '@/components/avatar-name';
 import { BreakChips } from '@/components/break-chips';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { useVibes } from '@/components/vibes/VibesProvider';
 import { apiFetch } from '@/lib/api';
 import { isTypingTarget } from '@/lib/is-typing-target';
 import { useModalKeyboard } from '@/hooks/use-modal-keyboard';
@@ -230,6 +233,8 @@ export function LeaderDashboard({
   isOffline,
   runAction,
 }: LeaderDashboardProps) {
+  const router = useRouter();
+  const { moodMap } = useVibes();
   const [nowTick, setNowTick] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -634,30 +639,22 @@ export function LeaderDashboard({
 
       {/* ═══ 2. TEAM KPIs ═══ */}
       <section className="kpi-grid">
-        <article className="kpi">
-          <p className="kpi-label">Active</p>
-          <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            {(liveData?.activeDutySessions.length || 0) > 0 && <span className="status-dot active" />}
-            {liveData?.activeDutySessions.length || 0}
-          </p>
-        </article>
-        <article className="kpi">
-          <p className="kpi-label">Total</p>
-          <p className="kpi-value">{liveData?.summary.totalSessionsToday || 0}</p>
-        </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Late</p>
           <p className="kpi-value" style={{ color: (liveData?.summary.totalLateMinutesToday || 0) > 0 ? 'var(--danger)' : undefined }}>
             {liveData?.summary.totalLateMinutesToday || 0}m
           </p>
         </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Requests</p>
           <p className="kpi-value" style={{ color: pendingReqs.length > 0 ? 'var(--danger)' : undefined }}>
             {pendingReqs.length}
           </p>
         </article>
-        <article className="kpi">
+        <article className="kpi kpi-link"
+          onClick={() => router.push('/employee/requests')}>
           <p className="kpi-label">Violations</p>
           <p className="kpi-value" style={{ color: pendingViolations.length > 0 ? 'var(--danger)' : undefined }}>
             {pendingViolations.length}
@@ -737,10 +734,13 @@ export function LeaderDashboard({
                 {liveData?.activeDutySessions.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      <AvatarName
-                        displayName={s.user.displayName}
-                        profilePhotoUrl={s.user.profilePhotoUrl}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <AvatarName
+                          displayName={s.user.displayName}
+                          profilePhotoUrl={s.user.profilePhotoUrl}
+                        />
+                        <MoodBadge mood={moodMap[s.user.id] ?? null} />
+                      </div>
                     </td>
                     <td className="mono">{fmtTime(s.punchedOnAt)}</td>
                     <td>{s.lateMinutes > 0 ? <span className="tag danger">{s.lateMinutes}m</span> : <span className="tag ok">OK</span>}</td>
@@ -789,10 +789,13 @@ export function LeaderDashboard({
                   return (
                     <tr key={activeBreak.id}>
                       <td>
-                        <AvatarName
-                          displayName={session.displayName}
-                          profilePhotoUrl={session.profilePhotoUrl}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <AvatarName
+                            displayName={session.displayName}
+                            profilePhotoUrl={session.profilePhotoUrl}
+                          />
+                          <MoodBadge mood={moodMap[session.userId] ?? null} />
+                        </div>
                       </td>
                       <td>{session.teamName}</td>
                       <td><span className="tag warning">{activeBreak.code.toUpperCase()}</span></td>
@@ -1052,17 +1055,20 @@ export function LeaderDashboard({
       {/* ═══ 10. PERSONAL MONTHLY STATS ═══ */}
       {monthlySummary ? (
         <section className="kpi-grid" style={{ opacity: 0.8 }}>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Month Hours</p>
             <p className="kpi-value" style={{ fontSize: '1rem' }}>{fmtDur(monthlySummary.totalWorkedMinutes)}</p>
           </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Month Late</p>
             <p className="kpi-value" style={{ fontSize: '1rem', color: monthlySummary.totalLateMinutes > 0 ? 'var(--danger)' : undefined }}>
               {monthlySummary.totalLateMinutes}m
             </p>
           </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/employee/requests')}>
             <p className="kpi-label">Overtime</p>
             <p className="kpi-value" style={{ fontSize: '1rem', color: monthlySummary.totalOvertimeMinutes > 0 ? 'var(--ok)' : undefined }}>
               {monthlySummary.totalOvertimeMinutes}m

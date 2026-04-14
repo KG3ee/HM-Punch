@@ -49,5 +49,37 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new Error(errorMessage);
   }
 
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
+}
+
+export async function sendReaction(emoji: string): Promise<void> {
+  await apiFetch("/vibes/reaction", {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function setMood(mood: string | null): Promise<void> {
+  await apiFetch("/vibes/mood", {
+    method: "PATCH",
+    body: JSON.stringify({ mood }),
+  });
+}
+
+export async function sendBubble(text: string): Promise<void> {
+  await apiFetch("/vibes/bubble", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export async function savePalette(palette: string[]): Promise<void> {
+  await apiFetch("/vibes/palette", {
+    method: "PATCH",
+    body: JSON.stringify({ palette }),
+  });
 }

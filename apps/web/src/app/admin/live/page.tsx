@@ -20,6 +20,8 @@ import type {
 } from '@/lib/attendance-events';
 import { isTypingTarget } from '@/lib/is-typing-target';
 import { useModalKeyboard } from '@/hooks/use-modal-keyboard';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { useVibes } from '@/components/vibes/VibesProvider';
 
 /* ── Break constants ── */
 const TOP_BREAK_CODES = ['bwc', 'wc', 'cy'] as const;
@@ -88,7 +90,7 @@ type LiveDuty = {
   punchedOnAt: string;
   isLate: boolean;
   lateMinutes: number;
-  user: { displayName: string; profilePhotoUrl?: string | null; role?: string };
+  user: { id: string; displayName: string; profilePhotoUrl?: string | null; role?: string };
   team?: { name: string } | null;
   breakSessions: LiveBreak[];
 };
@@ -219,6 +221,7 @@ function describeDiscardedQueueAction(action: QueuedAction): string {
 
 export default function AdminLivePage() {
   const router = useRouter();
+  const { moodMap } = useVibes();
 
   /* ── Monitoring state ── */
   const [data, setData] = useState<LiveBoard | null>(null);
@@ -827,30 +830,23 @@ export default function AdminLivePage() {
 
         {/* ═══ KPIs ═══ */}
         <section className="kpi-grid">
-          <article className="kpi">
-            <p className="kpi-label">Date</p>
-            <p className="kpi-value mono">{data?.localDate || '—'}</p>
-          </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/admin/history')}>
             <p className="kpi-label">Active Now</p>
             <p className="kpi-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               {(data?.activeDutySessions.length || 0) > 0 && <span className="status-dot active" />}
               {data?.activeDutySessions.length || 0}
             </p>
           </article>
-          <article className="kpi">
-            <p className="kpi-label">Total Today</p>
-            <p className="kpi-value">{data?.summary.totalSessionsToday || 0}</p>
-          </article>
-          <article className="kpi">
+          <article className="kpi kpi-link"
+            onClick={() => router.push('/admin/deductions')}>
             <p className="kpi-label">Late</p>
             <p className="kpi-value" style={{ color: (data?.summary.totalLateMinutesToday || 0) > 0 ? 'var(--danger)' : undefined }}>
               {data?.summary.totalLateMinutesToday || 0}m
             </p>
           </article>
           <article
-            className="kpi"
-            style={{ cursor: totalPending > 0 ? 'pointer' : undefined }}
+            className={`kpi${totalPending > 0 ? ' kpi-link' : ''}`}
             onClick={() => { if (totalPending > 0) router.push('/admin/requests'); }}
           >
             <p className="kpi-label">Requests</p>
@@ -859,8 +855,7 @@ export default function AdminLivePage() {
             </p>
           </article>
           <article
-            className="kpi"
-            style={{ cursor: pendingSignups > 0 ? 'pointer' : undefined }}
+            className={`kpi${pendingSignups > 0 ? ' kpi-link' : ''}`}
             onClick={() => { if (pendingSignups > 0) router.push('/admin/users?section=registrations'); }}
           >
             <p className="kpi-label">Signups</p>
@@ -894,11 +889,14 @@ export default function AdminLivePage() {
                     {data?.activeDutySessions.map((session) => (
                       <tr key={session.id}>
                         <td>
-                          <AvatarName
-                            displayName={session.user.displayName}
-                            profilePhotoUrl={session.user.profilePhotoUrl}
-                            subtitle={session.user.role || null}
-                          />
+                          <div style={{ position: 'relative', display: 'inline-flex' }}>
+                            <AvatarName
+                              displayName={session.user.displayName}
+                              profilePhotoUrl={session.user.profilePhotoUrl}
+                              subtitle={session.user.role || null}
+                            />
+                            <MoodBadge mood={moodMap[session.user.id] ?? null} role={session.user.role} />
+                          </div>
                         </td>
                         <td>{session.team?.name ? <span className="tag brand">{session.team.name}</span> : <span className="tag">Service</span>}</td>
                         <td>{session.user.role ? <span className={`tag role-${session.user.role.toLowerCase()}`}>{session.user.role}</span> : '—'}</td>

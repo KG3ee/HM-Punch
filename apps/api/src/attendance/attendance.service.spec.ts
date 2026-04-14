@@ -229,6 +229,19 @@ describe("AttendanceService.punchOff", () => {
     ).rejects.toThrow("No active duty session found");
   });
 
+  it("clears mood on punch-out", async () => {
+    process.env.APP_TIMEZONE = "Asia/Dubai";
+
+    await service.punchOff(mockUser as never, {
+      clientTimestamp: SERVER_NOW.toISOString(),
+    });
+    expect(mockTx.dutySession.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ mood: null }),
+      }),
+    );
+  });
+
   it("closes session and returns correct punchOffSummary with workedMinutes", async () => {
     process.env.APP_TIMEZONE = "Asia/Dubai";
 

@@ -171,6 +171,7 @@ model User {
   teamId          String?
   driverStatus    DriverStatus @default(OFFLINE)
   vehicleInfo     String?
+  reactionPalette String[]  @default([])  // up to 6 emoji strings
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -367,6 +368,7 @@ model DutySession {
   lateMinutes          Int               @default(0)
   overtimeMinutes      Int               @default(0)
   note                 String?
+  mood                 String?   // nullable emoji, max 2 chars, cleared on punch-out
   createdById          String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

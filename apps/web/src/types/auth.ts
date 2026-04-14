@@ -13,6 +13,7 @@ export interface MeUser {
   mustChangePassword: boolean;
   teamId?: string | null;
   vehicleInfo?: string | null;
+  reactionPalette?: string[];
   createdAt?: string;
   team?: {
     id: string;
