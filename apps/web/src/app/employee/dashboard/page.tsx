@@ -29,6 +29,7 @@ import { DashboardSkeleton } from '@/components/skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { SplitColumnStack } from '@/components/layout/split-column-stack';
 import { PunchAttendanceConfirmModal } from '@/components/punch-attendance-confirm-modal';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
 import { useVibes } from '@/components/vibes/VibesProvider';
 import type {
   AttendanceRefreshDetail,
@@ -1679,11 +1680,14 @@ export default function EmployeeDashboardPage() {
                         {publicBreakSessions.map((session) => (
                           <tr key={`${session.userId}-${session.activeBreak?.startedAt || 'none'}`}>
                             <td>
-                              <AvatarName
-                                displayName={session.displayName}
-                                profilePhotoUrl={session.profilePhotoUrl}
-                                size={30}
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <AvatarName
+                                  displayName={session.displayName}
+                                  profilePhotoUrl={session.profilePhotoUrl}
+                                  size={30}
+                                />
+                                <MoodBadge mood={moodMap[session.userId] ?? null} />
+                              </div>
                             </td>
                             <td>{session.teamName}</td>
                             <td>

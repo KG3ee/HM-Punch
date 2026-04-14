@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AvatarName } from '@/components/avatar-name';
 import { BreakChips } from '@/components/break-chips';
+import { MoodBadge } from '@/components/vibes/MoodBadge';
+import { useVibes } from '@/components/vibes/VibesProvider';
 import { apiFetch } from '@/lib/api';
 import { isTypingTarget } from '@/lib/is-typing-target';
 import { useModalKeyboard } from '@/hooks/use-modal-keyboard';
@@ -232,6 +234,7 @@ export function LeaderDashboard({
   runAction,
 }: LeaderDashboardProps) {
   const router = useRouter();
+  const { moodMap } = useVibes();
   const [nowTick, setNowTick] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -731,10 +734,13 @@ export function LeaderDashboard({
                 {liveData?.activeDutySessions.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      <AvatarName
-                        displayName={s.user.displayName}
-                        profilePhotoUrl={s.user.profilePhotoUrl}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <AvatarName
+                          displayName={s.user.displayName}
+                          profilePhotoUrl={s.user.profilePhotoUrl}
+                        />
+                        <MoodBadge mood={moodMap[s.user.id] ?? null} />
+                      </div>
                     </td>
                     <td className="mono">{fmtTime(s.punchedOnAt)}</td>
                     <td>{s.lateMinutes > 0 ? <span className="tag danger">{s.lateMinutes}m</span> : <span className="tag ok">OK</span>}</td>
@@ -783,10 +789,13 @@ export function LeaderDashboard({
                   return (
                     <tr key={activeBreak.id}>
                       <td>
-                        <AvatarName
-                          displayName={session.displayName}
-                          profilePhotoUrl={session.profilePhotoUrl}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <AvatarName
+                            displayName={session.displayName}
+                            profilePhotoUrl={session.profilePhotoUrl}
+                          />
+                          <MoodBadge mood={moodMap[session.userId] ?? null} />
+                        </div>
                       </td>
                       <td>{session.teamName}</td>
                       <td><span className="tag warning">{activeBreak.code.toUpperCase()}</span></td>
