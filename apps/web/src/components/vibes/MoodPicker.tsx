@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /** Matches most emoji (including multi-codepoint sequences like flags, skin tones, ZWJ combos). */
 const EMOJI_REGEX =
@@ -19,13 +20,19 @@ interface MoodPickerProps {
 export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus input when popover opens
+  // Position the popover above the trigger button and auto-focus input
   useEffect(() => {
-    if (open && inputRef.current) {
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setPopoverPos({
+      top: rect.top - 8, // 8px gap above the button
+      left: rect.right,  // right-align with button
+    });
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
   async function handleSelect(mood: string | null) {
@@ -50,8 +57,9 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <>
       <button
+        ref={btnRef}
         onClick={() => setOpen((v) => !v)}
         disabled={pending}
         className="nav-vibes-mood-btn"
@@ -61,13 +69,22 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
         {currentMood ?? "🙂"}
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
           <div
             onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 98 }}
+            style={{ position: "fixed", inset: 0, zIndex: 998 }}
           />
-          <div className="mood-picker-popover" style={{ zIndex: 99 }}>
+          <div
+            className="mood-picker-popover"
+            style={{
+              position: "fixed",
+              zIndex: 999,
+              top: popoverPos ? popoverPos.top : 0,
+              left: popoverPos ? popoverPos.left : 0,
+              transform: "translate(-100%, -100%)",
+            }}
+          >
             <input
               ref={inputRef}
               className="mood-picker-input"
@@ -92,8 +109,9 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
               </button>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }

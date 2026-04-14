@@ -1040,9 +1040,6 @@ tbody tr:last-child td {
 
 /* ── Mood Picker Popover (emoji input) ── */
 .mood-picker-popover {
-  position: absolute;
-  bottom: 2.5rem;
-  right: 0;
   background: var(--card-elevated);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
