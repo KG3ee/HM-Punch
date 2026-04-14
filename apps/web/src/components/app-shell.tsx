@@ -10,11 +10,6 @@ import { ensurePushSubscription, markNotificationRead, unsubscribePushSubscripti
 import { MeUser, UserRole } from '@/types/auth';
 import { PunchWidget } from '@/components/punch-widget';
 import { PunchOffSummaryModal } from '@/components/punch-off-summary-modal';
-import { MoodPicker } from '@/components/vibes/MoodPicker';
-import { BubbleButton } from '@/components/vibes/BubbleButton';
-import { ReactionButton } from '@/components/vibes/ReactionButton';
-import { useVibes } from '@/components/vibes/VibesProvider';
-import { setMood, sendBubble, sendReaction } from '@/lib/api';
 import type { AttendanceRefreshDetail, PunchOffSummary } from '@/lib/attendance-events';
 
 type NavItem = {
@@ -229,8 +224,6 @@ export function AppShell({
   const [leaderRequestsBadge, setLeaderRequestsBadge] = useState(0);
   const [employeeRequestsBadge, setEmployeeRequestsBadge] = useState(0);
   const [punchOffSummary, setPunchOffSummary] = useState<PunchOffSummary | null>(null);
-  const [isPunchedIn, setIsPunchedIn] = useState(false);
-  const { moodMap } = useVibes();
   const currentPath = pathname || '/';
   const currentRole = (me?.role || userRole || '') as UserRole | '';
 
@@ -379,21 +372,6 @@ export function AppShell({
     return () => window.removeEventListener('attendance:refresh', handleAttendanceRefresh);
   }, []);
 
-  /* ── Track punch-in status for vibes controls ── */
-  const checkPunchStatus = useCallback(() => {
-    apiFetch<{ id: string; status: string }[]>('/attendance/me/today')
-      .then((sessions) => setIsPunchedIn(sessions.some((s) => s.status === 'ACTIVE')))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!authChecked) return;
-    checkPunchStatus();
-    const onRefresh = () => checkPunchStatus();
-    window.addEventListener('attendance:refresh', onRefresh);
-    return () => window.removeEventListener('attendance:refresh', onRefresh);
-  }, [authChecked, checkPunchStatus]);
-
   if (!authChecked) {
     return (
       <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
@@ -514,28 +492,6 @@ export function AppShell({
                 );
               })
               : null}
-            {isPunchedIn && !['CHEF', 'DRIVER', 'MAID'].includes(me?.role ?? '') ? (
-              <div className="nav-vibes">
-                <div className="nav-vibes-item">
-                  <MoodPicker
-                    currentMood={me?.id ? moodMap[me.id] ?? null : null}
-                    onSelect={async (mood) => { await setMood(mood); }}
-                  />
-                  <span className="nav-vibes-label">Mood</span>
-                </div>
-                <div className="nav-vibes-item">
-                  <ReactionButton
-                    palette={me?.reactionPalette}
-                    onSend={sendReaction}
-                  />
-                  <span className="nav-vibes-label">React</span>
-                </div>
-                <div className="nav-vibes-item">
-                  <BubbleButton isPunchedIn onSend={sendBubble} />
-                  <span className="nav-vibes-label">Shout</span>
-                </div>
-              </div>
-            ) : null}
           </nav>
         ) : null}
       </header>

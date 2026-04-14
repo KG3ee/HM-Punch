@@ -197,13 +197,13 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   font-family: inherit;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
@@ -231,11 +231,6 @@ p {
 .button:active:not(:disabled) {
   transform: scale(0.98);
   transition-duration: var(--transition-fast);
-}
-
-.button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--brand-dim);
 }
 
 .button:disabled {
@@ -458,8 +453,8 @@ p {
   width: 100%;
   height: 2.5rem;
   border: 1px solid var(--line-hover);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.875rem;
   background: var(--surface);
   color: var(--ink);
   font-size: var(--text-base);
@@ -501,7 +496,6 @@ p {
 
 /* ── Cards (Modern SaaS Dark) ── */
 .card {
-  position: relative;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -518,22 +512,6 @@ p {
   background: var(--card-hover);
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--brand-gradient);
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-
-.card:hover::before {
-  opacity: 1;
-}
-
 .card h3 {
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
@@ -547,8 +525,8 @@ p {
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  gap: 0.25rem;
+  padding: 0.1875rem 0.625rem;
   border-radius: var(--radius-full);
   border: 1px solid var(--line-hover);
   font-size: var(--text-xs);
@@ -650,7 +628,7 @@ table {
 th, td {
   border-bottom: 1px solid var(--line);
   text-align: left;
-  padding: var(--space-2) var(--space-3);
+  padding: 0.625rem 0.75rem;
   vertical-align: middle;
   transition: all var(--transition);
 }
@@ -678,7 +656,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 tbody tr:hover td {
@@ -901,7 +879,6 @@ tbody tr:last-child td {
 /* Nav row — underline tab style, horizontally scrollable */
 .shell-nav {
   display: flex;
-  align-items: center;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1009,173 +986,6 @@ tbody tr:last-child td {
   gap: var(--space-2);
 }
 
-/* ── Nav Vibes (mood + bubble controls in nav bar) ── */
-.nav-vibes {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
-  padding: var(--space-1) var(--space-3);
-  flex-shrink: 0;
-  border-left: 1px solid var(--line);
-}
-
-.nav-vibes-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-}
-
-.nav-vibes-label {
-  font-size: 0.55rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: var(--font-semibold);
-  line-height: 1;
-  pointer-events: none;
-}
-
-.nav-vibes-mood-btn {
-  font-size: var(--text-xl);
-  line-height: 1;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  transition: transform var(--transition-fast);
-}
-
-.nav-vibes-mood-btn:hover {
-  transform: scale(1.2);
-}
-
-.nav-vibes-mood-btn:disabled {
-  cursor: wait;
-}
-
-/* ── Mood Picker Popover (emoji input) ── */
-.mood-picker-popover {
-  background: var(--card-elevated);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: 13rem;
-}
-
-.mood-picker-input {
-  width: 100%;
-  text-align: center;
-  font-size: var(--text-2xl);
-  padding: var(--space-2);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  color: var(--foreground);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.mood-picker-input::placeholder {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.mood-picker-input:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-dim);
-}
-
-.mood-clear-btn {
-  font-size: var(--text-xs);
-  color: var(--muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1);
-  text-align: center;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
-}
-
-.mood-clear-btn:hover {
-  color: var(--danger);
-}
-
-/* ── Reaction Button + Picker ── */
-.nav-vibes-shout-btn {
-  font-size: var(--text-xl);
-  line-height: 1;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  transition: transform var(--transition-fast);
-}
-
-.nav-vibes-shout-btn:hover {
-  transform: scale(1.2);
-}
-
-.nav-vibes-reaction-btn {
-  font-size: var(--text-xl);
-  line-height: 1;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  transition: transform var(--transition-fast);
-}
-
-.nav-vibes-reaction-btn:hover {
-  transform: scale(1.2);
-}
-
-.nav-vibes-reaction-btn:disabled {
-  cursor: wait;
-}
-
-.reaction-picker-popover {
-  background: var(--card-elevated);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-2);
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  width: 12rem;
-}
-
-.reaction-picker-emoji {
-  font-size: var(--text-2xl);
-  padding: var(--space-1);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-  line-height: 1;
-}
-
-.reaction-picker-emoji:hover {
-  transform: scale(1.3);
-  background: var(--brand-dim);
-}
-
-.reaction-picker-emoji:disabled {
-  cursor: wait;
-  opacity: 0.5;
-}
-
 .kpi {
   background: var(--card);
   border: 1px solid var(--line);
@@ -1227,30 +1037,6 @@ tbody tr:last-child td {
   letter-spacing: 0.06em;
   font-weight: var(--font-semibold);
   margin-top: var(--space-1);
-}
-
-.kpi.kpi-link {
-  cursor: pointer;
-}
-
-.kpi.kpi-link:hover {
-  border-color: var(--brand);
-}
-
-.kpi.kpi-link::after {
-  content: '→';
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.kpi.kpi-link:hover::after {
-  opacity: 1;
-  color: var(--brand);
 }
 
 /* ── Generic .grid (e.g. admin deductions policy columns via inline gridTemplateColumns) ── */
@@ -1631,29 +1417,29 @@ tbody tr:last-child td {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: var(--space-6) var(--space-4);
+  padding: 1.5rem 1rem;
 }
 
 .login-card {
   width: min(400px, 94vw);
   display: grid;
-  gap: var(--space-6);
+  gap: 1.5rem;
 }
 
 .login-header {
   display: grid;
-  gap: var(--space-2);
+  gap: 0.5rem;
 }
 
 .login-header h1 {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-bold);
+  font-size: 1.375rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--ink);
 }
 
 .login-header p {
-  font-size: var(--text-base);
+  font-size: 0.875rem;
   color: var(--muted);
 }
 
@@ -1666,17 +1452,17 @@ tbody tr:last-child td {
 
 .form-grid {
   display: grid;
-  gap: var(--space-3);
+  gap: 0.75rem;
 }
 
 .form-field {
   display: grid;
-  gap: var(--space-1);
+  gap: 0.375rem;
 }
 
 .form-field label {
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--ink-2);
 }
 
@@ -3116,176 +2902,6 @@ main > .shell {
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
-}
-
-@keyframes float-up {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-120px) scale(1.4); }
-}
-
-/* ═══════════════════════════════════════════════
-   3D Floating Bubbles — anonymous message bubbles
-   ═══════════════════════════════════════════════ */
-
-.bubble-ocean {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-/* ── Float path: rise from bottom, drift sideways, grow ── */
-.bubble-float {
-  position: absolute;
-  bottom: -8rem;
-  animation: bubbleRise var(--float-duration, 5s) ease-in-out forwards;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-@keyframes bubbleRise {
-  0% {
-    transform: translateY(0) translateX(0) scale(0.3);
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(-50vh) translateX(calc(var(--drift-x, 0px) * 0.6)) scale(0.75);
-  }
-  85% {
-    opacity: 1;
-    transform: translateY(-85vh) translateX(var(--drift-x, 0px)) scale(1);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(-100vh) translateX(var(--drift-x, 0px)) scale(1);
-  }
-}
-
-/* ── Wobble for organic movement ── */
-.bubble-float {
-  animation: bubbleRise var(--float-duration, 5s) ease-in-out forwards,
-             bubbleWobble 2.2s ease-in-out infinite;
-}
-
-@keyframes bubbleWobble {
-  0%, 100% { margin-left: 0; }
-  25% { margin-left: 8px; }
-  75% { margin-left: -8px; }
-}
-
-/* ── 3D Sphere ── */
-.bubble-sphere {
-  position: relative;
-  width: var(--bubble-size, 7rem);
-  height: var(--bubble-size, 7rem);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Translucent iridescent bubble surface */
-  background: radial-gradient(
-    ellipse at 30% 20%,
-    hsla(var(--bubble-hue, 200), 80%, 75%, 0.35) 0%,
-    hsla(var(--bubble-hue, 200), 60%, 55%, 0.22) 40%,
-    hsla(var(--bubble-hue, 200), 50%, 40%, 0.12) 100%
-  );
-  border: 1.5px solid hsla(var(--bubble-hue, 200), 70%, 80%, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  box-shadow:
-    inset 0 -8px 20px hsla(var(--bubble-hue, 200), 60%, 90%, 0.15),
-    inset 0 4px 12px hsla(var(--bubble-hue, 200), 70%, 95%, 0.2),
-    0 4px 24px hsla(var(--bubble-hue, 200), 50%, 30%, 0.25),
-    0 0 8px hsla(var(--bubble-hue, 200), 60%, 60%, 0.15);
-  transition: transform 0.15s ease;
-}
-
-/* ── Specular highlight (shine spot) ── */
-.bubble-shine {
-  position: absolute;
-  top: 12%;
-  left: 18%;
-  width: 35%;
-  height: 28%;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    hsla(0, 0%, 100%, 0.65) 0%,
-    hsla(0, 0%, 100%, 0.15) 55%,
-    transparent 100%
-  );
-  transform: rotate(-25deg);
-  pointer-events: none;
-}
-
-/* ── Text inside the bubble ── */
-.bubble-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-align: center;
-  font-size: clamp(0.65rem, calc(var(--bubble-size, 7rem) * 0.13), 0.85rem);
-  font-weight: var(--font-medium);
-  color: var(--foreground);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: auto;
-  -webkit-hyphens: auto;
-  line-height: 1.25;
-  max-width: calc(var(--bubble-size, 7rem) * 0.72);
-  padding: 0 var(--space-1);
-}
-
-/* ── Pop / burst animation ── */
-.bubble-pop .bubble-sphere {
-  animation: bubbleBurst 0.4s ease-out forwards;
-}
-
-@keyframes bubbleBurst {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-    border-radius: 50%;
-  }
-  40% {
-    transform: scale(1.35);
-    opacity: 0.85;
-    border-radius: 50%;
-    box-shadow:
-      0 0 20px hsla(var(--bubble-hue, 200), 60%, 60%, 0.4),
-      0 0 40px hsla(var(--bubble-hue, 200), 50%, 50%, 0.2);
-  }
-  70% {
-    transform: scale(1.6);
-    opacity: 0.4;
-    border-radius: 52% 48% 46% 54% / 48% 52% 54% 46%;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-    border-radius: 45% 55% 60% 40% / 55% 45% 40% 60%;
-    box-shadow: 0 0 0 transparent;
-  }
-}
-
-.bubble-pop .bubble-shine {
-  animation: shineFade 0.3s ease-out forwards;
-}
-
-@keyframes shineFade {
-  0% { opacity: 1; }
-  100% { opacity: 0; transform: rotate(-25deg) scale(1.5); }
-}
-
-/* ── Hover: gentle wobble ── */
-.bubble-sphere:hover {
-  transform: scale(1.08);
 }
 
 .empty-state-title {

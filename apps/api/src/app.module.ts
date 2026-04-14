@@ -20,7 +20,6 @@ import { ViolationsModule } from "./violations/violations.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { DeductionsModule } from "./deductions/deductions.module";
 import { ClientSyncModule } from "./client-sync/client-sync.module";
-import { VibesModule } from "./vibes/vibes.module";
 
 @Module({
   imports: [
@@ -45,7 +44,6 @@ import { VibesModule } from "./vibes/vibes.module";
 
     ReportsModule,
     JobsModule,
-    VibesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

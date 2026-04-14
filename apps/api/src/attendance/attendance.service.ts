@@ -316,7 +316,6 @@ export class AttendanceService {
           status: DutySessionStatus.CLOSED,
           note: note || active.note,
           overtimeMinutes,
-          mood: null,
         },
       });
 
