@@ -1090,6 +1090,59 @@ tbody tr:last-child td {
   color: var(--danger);
 }
 
+/* ── Reaction Button + Picker ── */
+.nav-vibes-reaction-btn {
+  font-size: var(--text-xl);
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-fast);
+}
+
+.nav-vibes-reaction-btn:hover {
+  transform: scale(1.2);
+}
+
+.nav-vibes-reaction-btn:disabled {
+  cursor: wait;
+}
+
+.reaction-picker-popover {
+  background: var(--card-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  width: 12rem;
+}
+
+.reaction-picker-emoji {
+  font-size: var(--text-2xl);
+  padding: var(--space-1);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  line-height: 1;
+}
+
+.reaction-picker-emoji:hover {
+  transform: scale(1.3);
+  background: var(--brand-dim);
+}
+
+.reaction-picker-emoji:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
 .kpi {
   background: var(--card);
   border: 1px solid var(--line);

@@ -24,13 +24,13 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Position the popover above the trigger button and auto-focus input
+  // Position the popover below the trigger button and auto-focus input
   useEffect(() => {
     if (!open || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
     setPopoverPos({
-      top: rect.top - 8, // 8px gap above the button
-      left: rect.right,  // right-align with button
+      top: rect.bottom + 8, // 8px gap below the button
+      left: rect.right,     // right-align with button's right edge
     });
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
@@ -82,7 +82,7 @@ export function MoodPicker({ currentMood, onSelect }: MoodPickerProps) {
               zIndex: 999,
               top: popoverPos ? popoverPos.top : 0,
               left: popoverPos ? popoverPos.left : 0,
-              transform: "translate(-100%, -100%)",
+              transform: "translateX(-100%)",
             }}
           >
             <input

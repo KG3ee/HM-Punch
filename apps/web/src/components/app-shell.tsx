@@ -12,8 +12,9 @@ import { PunchWidget } from '@/components/punch-widget';
 import { PunchOffSummaryModal } from '@/components/punch-off-summary-modal';
 import { MoodPicker } from '@/components/vibes/MoodPicker';
 import { BubbleButton } from '@/components/vibes/BubbleButton';
+import { ReactionButton } from '@/components/vibes/ReactionButton';
 import { useVibes } from '@/components/vibes/VibesProvider';
-import { setMood, sendBubble } from '@/lib/api';
+import { setMood, sendBubble, sendReaction } from '@/lib/api';
 import type { AttendanceRefreshDetail, PunchOffSummary } from '@/lib/attendance-events';
 
 type NavItem = {
@@ -518,6 +519,10 @@ export function AppShell({
                 <MoodPicker
                   currentMood={me?.id ? moodMap[me.id] ?? null : null}
                   onSelect={async (mood) => { await setMood(mood); }}
+                />
+                <ReactionButton
+                  palette={me?.reactionPalette}
+                  onSend={sendReaction}
                 />
                 <BubbleButton isPunchedIn onSend={sendBubble} />
               </div>
