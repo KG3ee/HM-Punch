@@ -1,6 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { DutySessionStatus, Prisma, User } from "@prisma/client";
+import { DutySessionStatus, Prisma, Role, User } from "@prisma/client";
+
+/** Roles that don't participate in vibes (mood, reactions). */
+const VIBES_EXCLUDED_ROLES: Set<Role> = new Set([Role.CHEF, Role.DRIVER, Role.MAID]);
 
 @Injectable()
 export class VibesService {
@@ -11,7 +14,11 @@ export class VibesService {
   /** Return userId → mood for all active duty sessions that have a mood set. */
   async getActiveMoods(): Promise<Record<string, string | null>> {
     const sessions = await this.prisma.dutySession.findMany({
-      where: { status: DutySessionStatus.ACTIVE, mood: { not: null } },
+      where: {
+        status: DutySessionStatus.ACTIVE,
+        mood: { not: null },
+        user: { role: { notIn: [...VIBES_EXCLUDED_ROLES] } },
+      },
       select: { userId: true, mood: true },
     });
     const map: Record<string, string | null> = {};
@@ -22,6 +29,9 @@ export class VibesService {
   }
 
   async setMood(user: User, mood: string | null): Promise<void> {
+    if (VIBES_EXCLUDED_ROLES.has(user.role)) {
+      throw new ForbiddenException("Vibes are not available for your role");
+    }
     if (mood !== null && mood.length > 2) {
       throw new BadRequestException("Mood emoji must be 2 characters or fewer");
     }

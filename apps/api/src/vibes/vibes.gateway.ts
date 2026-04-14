@@ -41,7 +41,7 @@ export class VibesGateway {
     @CurrentUser() authUser: AuthUser,
     @Body("mood") mood: string | null,
   ): Promise<void> {
-    await this.vibesService.setMood({ id: authUser.sub } as User, mood ?? null);
+    await this.vibesService.setMood({ id: authUser.sub, role: authUser.role } as User, mood ?? null);
     this.events$.next({
       data: JSON.stringify({ type: "mood:updated", userId: authUser.sub, mood: mood ?? null }),
     });

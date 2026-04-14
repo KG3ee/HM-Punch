@@ -514,7 +514,7 @@ export function AppShell({
                 );
               })
               : null}
-            {isPunchedIn ? (
+            {isPunchedIn && !['CHEF', 'DRIVER', 'MAID'].includes(me?.role ?? '') ? (
               <div className="nav-vibes">
                 <div className="nav-vibes-item">
                   <MoodPicker

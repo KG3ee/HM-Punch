@@ -895,7 +895,7 @@ export default function AdminLivePage() {
                               profilePhotoUrl={session.user.profilePhotoUrl}
                               subtitle={session.user.role || null}
                             />
-                            <MoodBadge mood={moodMap[session.user.id] ?? null} />
+                            <MoodBadge mood={moodMap[session.user.id] ?? null} role={session.user.role} />
                           </div>
                         </td>
                         <td>{session.team?.name ? <span className="tag brand">{session.team.name}</span> : <span className="tag">Service</span>}</td>
