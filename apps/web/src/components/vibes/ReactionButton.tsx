@@ -12,7 +12,6 @@ interface ReactionButtonProps {
 
 export function ReactionButton({ palette, onSend }: ReactionButtonProps) {
   const [open, setOpen] = useState(false);
-  const [sending, setSending] = useState(false);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const emojis = palette && palette.length > 0 ? palette : DEFAULT_PALETTE;
@@ -27,13 +26,8 @@ export function ReactionButton({ palette, onSend }: ReactionButtonProps) {
   }, [open]);
 
   async function handleSend(emoji: string) {
-    setSending(true);
-    try {
-      await onSend(emoji);
-    } finally {
-      setSending(false);
-      setOpen(false);
-    }
+    // Fire-and-forget — don't block so user can spam clicks
+    void onSend(emoji);
   }
 
   return (
@@ -41,7 +35,6 @@ export function ReactionButton({ palette, onSend }: ReactionButtonProps) {
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        disabled={sending}
         className="nav-vibes-reaction-btn"
         aria-label="Send reaction"
         title="Send a reaction emoji"
@@ -70,7 +63,6 @@ export function ReactionButton({ palette, onSend }: ReactionButtonProps) {
                 key={emoji}
                 className="reaction-picker-emoji"
                 onClick={() => handleSend(emoji)}
-                disabled={sending}
                 aria-label={`React with ${emoji}`}
               >
                 {emoji}
