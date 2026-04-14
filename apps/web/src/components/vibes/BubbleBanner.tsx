@@ -24,6 +24,16 @@ const BUBBLE_LIFETIME_BASE = 9; // seconds minimum
 const BUBBLE_LIFETIME_JITTER = 2; // up to this many extra seconds (9–11s total)
 const POP_DURATION = 0.4; // seconds for the pop/burst animation
 
+/** Map text length → bubble diameter (rem). Short text = small, long text = big. */
+function bubbleSize(len: number): number {
+  const MIN_SIZE = 5;
+  const MAX_SIZE = 9.5;
+  const MIN_LEN = 5;
+  const MAX_LEN = 70;
+  const t = Math.min(Math.max((len - MIN_LEN) / (MAX_LEN - MIN_LEN), 0), 1);
+  return MIN_SIZE + t * (MAX_SIZE - MIN_SIZE);
+}
+
 export function BubbleBanner() {
   const { latestEvent } = useVibes();
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -81,6 +91,7 @@ export function BubbleBanner() {
             "--drift-x": `${b.driftX}px`,
             "--float-duration": `${b.duration}s`,
             "--bubble-hue": `${b.hue}`,
+            "--bubble-size": `${bubbleSize(b.text.length)}rem`,
           } as React.CSSProperties}
         >
           <div

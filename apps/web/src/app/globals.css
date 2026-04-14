@@ -3180,8 +3180,8 @@ main > .shell {
 /* ── 3D Sphere ── */
 .bubble-sphere {
   position: relative;
-  width: 7rem;
-  height: 7rem;
+  width: var(--bubble-size, 7rem);
+  height: var(--bubble-size, 7rem);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -3229,14 +3229,14 @@ main > .shell {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-align: center;
-  font-size: var(--text-xs);
+  font-size: clamp(0.65rem, calc(var(--bubble-size, 7rem) * 0.13), 0.85rem);
   font-weight: var(--font-medium);
   color: var(--foreground);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
   word-break: normal;
   line-height: 1.25;
-  max-width: 5rem;
+  max-width: calc(var(--bubble-size, 7rem) - 2rem);
   padding: 0 var(--space-1);
 }
 
