@@ -26,8 +26,8 @@ const POP_DURATION = 0.4; // seconds for the pop/burst animation
 
 /** Map text length → bubble diameter (rem). Short text = small, long text = big. */
 function bubbleSize(len: number): number {
-  const MIN_SIZE = 5;
-  const MAX_SIZE = 9.5;
+  const MIN_SIZE = 5.5;
+  const MAX_SIZE = 10;
   const MIN_LEN = 5;
   const MAX_LEN = 70;
   const t = Math.min(Math.max((len - MIN_LEN) / (MAX_LEN - MIN_LEN), 0), 1);
@@ -103,7 +103,7 @@ export function BubbleBanner() {
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') popBubble(b.id); }}
           >
             <div className="bubble-shine" />
-            <span className="bubble-text">{b.text}</span>
+            <span className="bubble-text" lang="en">{b.text}</span>
           </div>
         </div>
       ))}

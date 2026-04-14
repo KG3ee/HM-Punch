@@ -3235,8 +3235,10 @@ main > .shell {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
   word-break: normal;
+  hyphens: auto;
+  -webkit-hyphens: auto;
   line-height: 1.25;
-  max-width: calc(var(--bubble-size, 7rem) - 2rem);
+  max-width: calc(var(--bubble-size, 7rem) * 0.72);
   padding: 0 var(--space-1);
 }
 
